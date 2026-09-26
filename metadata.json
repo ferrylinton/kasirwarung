@@ -1,0 +1,6 @@
+{
+  "name": "KasirWarung - Sistem POS Toko Kelontong Multi-Tenant",
+  "description": "Aplikasi POS kasir toko kelontong modern dan multi-tenant untuk manajemen inventaris sembako, kasir cepat, laporan penjualan, struk kasir, dan kontrol hak akses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
