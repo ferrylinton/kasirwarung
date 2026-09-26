@@ -16,6 +16,7 @@ import {
   Trash2,
   CheckCircle2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Product, PaymentMethod } from '../../types';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
@@ -42,6 +43,7 @@ const CATEGORY_TABS = [
 ];
 
 export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshProducts }) => {
+  const { t } = useTranslation();
   const { user, tenant, token } = useAuthStore();
   const { addToast } = useToastStore();
   const {
@@ -422,9 +424,9 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
           {items.length === 0 ? (
             <div className="h-48 flex flex-col items-center justify-center text-slate-400">
               <Calculator className="w-10 h-10 stroke-1 text-slate-300 mb-2" />
-              <p className="text-xs font-medium">Keranjang transaksi masih kosong</p>
+              <p className="text-xs font-medium">{t('pos.emptyCartTitle', 'Keranjang transaksi masih kosong')}</p>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Pilih sembako di katalog untuk menambahkan
+                {t('pos.emptyCartDesc', 'Pilih sembako di katalog untuk menambahkan')}
               </p>
             </div>
           ) : (
@@ -598,7 +600,7 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>{isProcessingOrder ? 'Memproses Transaksi...' : 'Selesaikan & Cetak Nota'}</span>
+            <span>{isProcessingOrder ? t('pos.processingPayment', 'Memproses Transaksi...') : t('pos.payBtn', 'Selesaikan & Cetak Nota')}</span>
           </button>
 
           {/* Thermal Printer Ready Status */}
@@ -627,16 +629,16 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
       <ConfirmationModal
         isOpen={showCancelConfirm}
         type="DELETE"
-        title="Batalkan Transaksi Ini?"
-        description="Keranjang transaksi kasir akan dikosongkan. Rincian barang yang telah dimasukkan tidak akan tersimpan."
-        confirmText="Ya, Batalkan Nota"
-        cancelText="Kembali Kasir"
+        title={t('pos.clearCart', 'Batalkan Transaksi Ini?')}
+        description={t('pos.clearCartConfirm', 'Keranjang transaksi kasir akan dikosongkan. Rincian barang yang telah dimasukkan tidak akan tersimpan.')}
+        confirmText={t('pos.clearCart', 'Ya, Batalkan Nota')}
+        cancelText={t('common.cancel', 'Kembali Kasir')}
         onConfirm={() => {
           clearCart();
           setShowCancelConfirm(false);
           addToast({
             type: 'info',
-            title: 'Nota Dibatalkan',
+            title: t('pos.clearCart', 'Nota Dibatalkan'),
             message: 'Keranjang belanja kasir telah dikosongkan.',
           });
         }}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ScanBarcode, ShoppingCart, Menu, Store, Shield, User as UserIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
 import { useCartStore } from '../store/cartStore';
+import { LanguageSelector } from './LanguageSelector';
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -16,42 +18,46 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSearchChange,
   searchQuery,
 }) => {
+  const { t, i18n } = useTranslation();
   const { user, tenant } = useAuthStore();
   const { getItemCount } = useCartStore();
   const itemCount = getItemCount();
 
   const [currentTime, setCurrentTime] = useState<string>('');
 
+  const isEn = i18n.language && i18n.language.startsWith('en');
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      const dateStr = now.toLocaleDateString('id-ID', {
+      const locale = isEn ? 'en-US' : 'id-ID';
+      const dateStr = now.toLocaleDateString(locale, {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
       });
-      const timeStr = now.toLocaleTimeString('id-ID', {
+      const timeStr = now.toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
       });
-      setCurrentTime(`${dateStr} • ${timeStr} WIB`);
+      setCurrentTime(`${dateStr} • ${timeStr} ${isEn ? '' : 'WIB'}`);
     };
 
     updateTime();
     const timer = setInterval(updateTime, 1000 * 30);
     return () => clearInterval(timer);
-  }, []);
+  }, [isEn]);
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
       case 'ADMIN':
-        return 'Admin Global';
+        return t('nav.roles.admin', 'Admin Global');
       case 'MANAGER':
-        return 'Manajer Toko';
+        return t('nav.roles.manager', 'Manajer Toko');
       case 'CASHIER':
-        return 'Kasir Utama';
+        return t('nav.roles.cashier', 'Kasir Utama');
       default:
-        return 'Staf Warung';
+        return t('nav.roles.staff', 'Staf Warung');
     }
   };
 
@@ -73,21 +79,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari produk cepat (nama sembako atau scan barcode)..."
+            placeholder={t('nav.searchPlaceholder', 'Cari produk cepat (nama sembako atau scan barcode)...')}
             className="w-full pl-9 pr-10 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all text-slate-800 placeholder:text-slate-400"
           />
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer" title="Tekan F2 untuk Scan Barcode">
+          <div
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+            title={t('nav.scanBarcode', 'Tekan F2 untuk Scan Barcode')}
+          >
             <ScanBarcode className="w-4 h-4" />
           </div>
         </div>
       </div>
 
-      {/* Right Controls: Store status, Time, Cart button, User Profile */}
-      <div className="flex items-center gap-2 sm:gap-4 pl-3">
+      {/* Right Controls: Language Selector, Store status, Time, Cart button, User Profile */}
+      <div className="flex items-center gap-2 sm:gap-3 pl-3">
+        {/* Radix UI Select Language Selector */}
+        <LanguageSelector variant="navbar" />
+
         {/* Toko Buka Status Pill */}
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-xs font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Toko Buka</span>
+          <span>{t('nav.storeOpen', 'Toko Buka')}</span>
         </div>
 
         {/* Live Date / Time */}
@@ -101,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="relative flex items-center gap-2 py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold transition-all shadow-xs"
         >
           <ShoppingCart className="w-4 h-4 text-emerald-600" />
-          <span className="hidden xs:inline">Pesanan</span>
+          <span className="hidden xs:inline">{t('nav.orders', 'Pesanan')}</span>
           {itemCount > 0 && (
             <span className="bg-amber-500 text-white text-[11px] px-1.5 py-0.2 rounded-full font-mono">
               {itemCount}

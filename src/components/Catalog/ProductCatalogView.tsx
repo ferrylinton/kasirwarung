@@ -14,7 +14,9 @@ import {
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
+  ShieldAlert,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Product } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
@@ -33,6 +35,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   onRefreshProducts,
   onNavigateToPOS,
 }) => {
+  const { t, i18n } = useTranslation();
   const { user, tenant, token } = useAuthStore();
   const { addItem } = useCartStore();
   const { addToast } = useToastStore();
@@ -129,6 +132,15 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   };
 
   const handleSaveProduct = async (data: any) => {
+    if (user?.role === 'ADMIN') {
+      addToast({
+        type: 'error',
+        title: 'Akses Ditolak',
+        message: 'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.',
+      });
+      return;
+    }
+
     try {
       const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
@@ -167,6 +179,15 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   const handleDeleteProduct = async () => {
     if (!deletingProduct) return;
 
+    if (user?.role === 'ADMIN') {
+      addToast({
+        type: 'error',
+        title: 'Akses Ditolak',
+        message: 'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.',
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`/api/products/${deletingProduct.id}`, {
         method: 'DELETE',
@@ -199,19 +220,29 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Admin Notice Banner */}
+      {user?.role === 'ADMIN' && (
+        <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-3 text-amber-900 shadow-xs">
+          <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-amber-950">{t('catalog.adminRestrictionTitle', 'Akses Baca-Saja untuk Role ADMIN')}:</span>{' '}
+            {t('catalog.adminRestrictionDesc', 'Role ADMIN hanya berwenang memantau katalog. Role ADMIN dilarang menambah, mengubah, atau menghapus data produk maupun kategori. Pengelolaan produk dilakukan oleh Manajer Toko.')}
+          </div>
+        </div>
+      )}
+
       {/* Top Header & Stat Cards matching Image 3 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="text-[11px] font-bold text-emerald-700 tracking-wider uppercase mb-1 flex items-center gap-1.5">
             <Package className="w-3.5 h-3.5" />
-            <span>Inventaris Fisik & Rak Depan</span>
+            <span>KasirWarung POS</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Katalog & Etalase Produk
+            {t('catalog.title', 'Katalog & Etalase Produk')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-            Kelola daftar sembako, pembaruan harga grosir/eceran, dan ketersediaan stok kasir{' '}
-            <span className="font-semibold text-slate-700">{tenant?.name || 'Berkah Jaya'}</span>.
+            {t('catalog.subtitle', 'Kelola ratusan varian sembako, harga modal, harga jual, dan stok realtime.')}
           </p>
         </div>
 
@@ -222,8 +253,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-semibold text-slate-500 uppercase">Total Produk</div>
-              <div className="text-sm font-black text-slate-900 font-mono">{totalActive} Aktif</div>
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">{t('common.all', 'Total Produk')}</div>
+              <div className="text-sm font-black text-slate-900 font-mono">{totalActive} {t('common.active', 'Aktif')}</div>
             </div>
           </div>
 
@@ -232,8 +263,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-semibold text-slate-500 uppercase">Kategori</div>
-              <div className="text-sm font-black text-slate-900 font-mono">{totalCategoriesCount} Seksi</div>
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">{t('common.category', 'Kategori')}</div>
+              <div className="text-sm font-black text-slate-900 font-mono">{totalCategoriesCount}</div>
             </div>
           </div>
 
@@ -242,8 +273,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-semibold text-rose-500 uppercase">Perlu Restock</div>
-              <div className="text-sm font-black text-rose-700 font-mono">{lowStockCount} Menipis</div>
+              <div className="text-[10px] font-semibold text-rose-500 uppercase">{t('catalog.lowStockOnly', 'Perlu Restock')}</div>
+              <div className="text-sm font-black text-rose-700 font-mono">{lowStockCount}</div>
             </div>
           </div>
         </div>
@@ -253,6 +284,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {categoryPills.map((cat) => {
           const isActive = selectedCategory === cat.name;
+          const displayName = cat.name === 'Semua Produk' ? t('catalog.allProducts', 'Semua Produk') : cat.name;
           return (
             <button
               key={cat.name}
@@ -266,7 +298,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
-              <span>{cat.name}</span>
+              <span>{displayName}</span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                   isActive ? 'bg-emerald-700/80 text-white' : 'bg-slate-100 text-slate-500'
@@ -291,7 +323,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Cari nama barang, barcode, atau SKU..."
+            placeholder={t('catalog.searchPlaceholder', 'Cari nama barang, barcode, atau SKU...')}
             className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:border-emerald-500 focus:outline-hidden shadow-xs transition-all"
           />
         </div>
@@ -305,10 +337,10 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               onChange={(e) => setSortOption(e.target.value as any)}
               className="pl-3 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-hidden appearance-none cursor-pointer shadow-xs"
             >
-              <option value="terlaris">Terlaris (Fast Moving)</option>
-              <option value="harga-asc">Harga Terendah</option>
-              <option value="harga-desc">Harga Tertinggi</option>
-              <option value="stok-low">Stok Menipis Terlebih Dahulu</option>
+              <option value="terlaris">{t('catalog.sortBestSeller', 'Terlaris (Fast Moving)')}</option>
+              <option value="harga-asc">{t('catalog.sortPriceLow', 'Harga Terendah')}</option>
+              <option value="harga-desc">{t('catalog.sortPriceHigh', 'Harga Tertinggi')}</option>
+              <option value="stok-low">{t('catalog.sortStockLow', 'Stok Menipis Terlebih Dahulu')}</option>
             </select>
             <ArrowUpDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
@@ -341,7 +373,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>Tambah Produk</span>
+              <span>{t('catalog.addProduct', 'Tambah Produk')}</span>
             </button>
           )}
         </div>
@@ -589,10 +621,10 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       <ConfirmationModal
         isOpen={Boolean(deletingProduct)}
         type="DELETE"
-        title="Hapus Produk dari Etalase?"
-        description={`Apakah Anda yakin ingin menghapus produk "${deletingProduct?.name}" (SKU: ${deletingProduct?.sku})? Tindakan ini tidak dapat dibatalkan.`}
-        confirmText="Ya, Hapus Produk"
-        cancelText="Batal"
+        title={t('modals.deleteProductTitle', 'Hapus Produk Sembako')}
+        description={t('modals.deleteProductDesc', { name: deletingProduct?.name || '' })}
+        confirmText={t('modals.deleteProductConfirm', 'Ya, Hapus Produk')}
+        cancelText={t('common.cancel', 'Batal')}
         onConfirm={handleDeleteProduct}
         onCancel={() => setDeletingProduct(null)}
       />

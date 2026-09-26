@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { MailCheck, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { LanguageSelector } from '../LanguageSelector';
 
 interface VerifyEmailViewProps {
   initialToken?: string;
@@ -16,6 +18,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
   onVerifiedSuccess,
   onBackToLogin,
 }) => {
+  const { t, i18n } = useTranslation();
   const { setAuth } = useAuthStore();
   const { addToast } = useToastStore();
 
@@ -27,7 +30,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
     if (!tokenInput.trim()) {
       addToast({
         type: 'warning',
-        title: 'Token Diperlukan',
+        title: t('common.warning', 'Peringatan'),
         message: 'Masukkan token verifikasi dari email Anda.',
       });
       return;
@@ -37,27 +40,30 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
       setLoading(true);
       const res = await fetch('/api/auth/verify-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-language': i18n.language || 'id',
+        },
         body: JSON.stringify({ token: tokenInput.trim() }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Verifikasi gagal');
+        throw new Error(data.message || t('common.error', 'Verifikasi gagal'));
       }
 
       setAuth(data.token, data.user);
       addToast({
         type: 'success',
-        title: 'Verifikasi Berhasil!',
-        message: data.message,
+        title: t('auth.loginSuccessTitle', 'Verifikasi Berhasil!'),
+        message: data.message || 'Akun Anda telah aktif dan dapat digunakan.',
       });
 
       onVerifiedSuccess();
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Verifikasi Gagal',
+        title: t('common.error', 'Verifikasi Gagal'),
         message: err.message,
       });
     } finally {
@@ -66,23 +72,30 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative">
+      {/* Top right language switcher in auth view */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSelector variant="auth" />
+      </div>
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative text-center">
         <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center shadow-xs mb-4">
           <MailCheck className="w-8 h-8" />
         </div>
 
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Verifikasi Akun Warung</h1>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          {t('auth.verifyTitle', 'Verifikasi Akun Warung')}
+        </h1>
         <p className="text-xs text-slate-600 mt-2 leading-relaxed">
           {initialEmail
             ? `Email verifikasi telah dikirimkan ke ${initialEmail}. Silakan periksa inbox email Anda atau gunakan token di bawah.`
-            : 'Masukkan kode / token verifikasi yang dikirimkan ke alamat email Anda untuk mengaktifkan akun.'}
+            : t('auth.verifySubtitle', 'Masukkan kode / token verifikasi yang dikirimkan ke alamat email Anda untuk mengaktifkan akun.')}
         </p>
 
         <form onSubmit={handleVerify} className="mt-6 space-y-4 text-left">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Token Verifikasi Akun
+              {t('auth.verifyTokenLabel', 'Token Verifikasi Akun')}
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -101,7 +114,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
             disabled={loading}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <span>{loading ? 'Mengaktifkan...' : 'Aktivasi & Mulai Berjualan'}</span>
+            <span>{loading ? t('auth.verifying', 'Mengaktifkan...') : t('auth.verifyBtn', 'Aktivasi & Mulai Berjualan')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -111,7 +124,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
             onClick={onBackToLogin}
             className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
           >
-            Kembali ke Halaman Masuk
+            {t('auth.backToLogin', 'Kembali ke Halaman Masuk')}
           </button>
         </div>
       </div>

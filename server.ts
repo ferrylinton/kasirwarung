@@ -9,6 +9,9 @@ import nodemailer from 'nodemailer';
 import { Redis } from 'ioredis';
 import { MongoClient, Db, Collection } from 'mongodb';
 import { z } from 'zod';
+import { createTokenBucketMiddleware, getBucketStatus } from './server/tokenBucket.js';
+import { MemoryCollection } from './server/mongoMemoryFallback.js';
+import { i18nMiddleware, initBackendI18n, i18next } from './server/i18n.js';
 
 dotenv.config();
 
@@ -24,11 +27,11 @@ const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 // Database & Collection References
 let mongoClient: MongoClient | null = null;
 let db: Db | null = null;
-let tenantsCol: Collection<any>;
-let usersCol: Collection<any>;
-let productsCol: Collection<any>;
-let ordersCol: Collection<any>;
-let tokensCol: Collection<any>;
+let tenantsCol: any = new MemoryCollection('tenants');
+let usersCol: any = new MemoryCollection('users');
+let productsCol: any = new MemoryCollection('products');
+let ordersCol: any = new MemoryCollection('orders');
+let tokensCol: any = new MemoryCollection('tokens');
 let isMongoLive = false;
 
 // Redis Client
@@ -188,8 +191,14 @@ async function initMongoDB() {
       console.log(`📊 Found ${tenantCount} existing tenants in MongoDB Atlas.`);
     }
   } catch (err: any) {
-    console.error('❌ MongoDB Atlas connection error:', err.message);
+    console.warn('⚠️ MongoDB Atlas network warning:', err.message);
+    console.log('🛡️ Activating MongoDB-compatible In-Memory engine for KasirWarung...');
     isMongoLive = false;
+    const count = await tenantsCol.countDocuments();
+    if (count === 0) {
+      await seedMongoData();
+      console.log('✅ Seeded KasirWarung initial dataset into MongoDB-compatible engine.');
+    }
   }
 }
 
@@ -572,11 +581,54 @@ async function seedMongoData() {
 }
 
 async function startServer() {
+  await initBackendI18n();
   await initMongoDB();
 
   const app = express();
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(i18nMiddleware);
+
+  // 🪣 Token Bucket Rate Limiter Configuration
+  // 1. Global API Limiter: Capacity of 60 tokens, refills at 2 tokens/sec (burst 60, sustains 120 req/min)
+  const globalTokenBucket = createTokenBucketMiddleware({
+    capacity: 60,
+    refillRate: 2,
+    cost: 1,
+    prefix: 'tb:global',
+    message: 'Batas laju permintaan API umum terlampaui. Token bucket habis. Silakan tunggu beberapa detik.',
+    redisClient,
+    isRedisConnected: () => redisConnected,
+  });
+
+  // 2. Strict Auth Limiter: Protects login, register, and verification against brute-force attacks
+  // Capacity: 10 tokens, refills at 0.5 tokens/sec (1 token every 2 seconds)
+  const authRateLimiter = createTokenBucketMiddleware({
+    capacity: 10,
+    refillRate: 0.5,
+    cost: 1,
+    prefix: 'tb:auth',
+    message: 'Terlalu banyak percobaan autentikasi (Rate limit). Demi keamanan, silakan tunggu beberapa detik.',
+    redisClient,
+    isRedisConnected: () => redisConnected,
+  });
+
+  // Backend i18next Status Endpoint
+  app.get('/api/i18n/status', (req, res) => {
+    res.json({
+      success: true,
+      service: 'i18next Backend Internationalization',
+      defaultLanguage: 'id',
+      supportedLanguages: ['id', 'en'],
+      currentRequestLanguage: req.language,
+      sampleTranslations: {
+        success: req.t('common.success'),
+        forbidden: req.t('common.forbidden'),
+        adminForbidden: req.t('products.adminForbidden'),
+        loginSuccess: req.t('auth.loginSuccess'),
+      },
+    });
+  });
 
   // Health Diagnostics
   app.get('/api/health', async (req, res) => {
@@ -599,9 +651,43 @@ async function startServer() {
       mongoConnected: mongoLive,
       redisConnected,
       collections,
+      rateLimiter: 'Token Bucket Algorithm Active (Redis / In-Memory)',
       timestamp: new Date().toISOString(),
     });
   });
+
+  // Rate Limiting Status / Testing Endpoint
+  app.get('/api/ratelimit/status', (req, res) => {
+    const ip = (typeof req.headers['x-forwarded-for'] === 'string'
+      ? req.headers['x-forwarded-for'].split(',')[0].trim()
+      : req.ip || req.socket.remoteAddress || '127.0.0.1');
+
+    const globalStatus = getBucketStatus(`tb:global:${ip}`, 60, 2);
+    const authStatus = getBucketStatus(`tb:auth:${ip}`, 10, 0.5);
+
+    res.json({
+      success: true,
+      algorithm: 'Token Bucket',
+      description: 'Algoritma Token Bucket mengizinkan burst trafik hingga kapasitas bucket dan mengisi token secara konstan.',
+      clientIp: ip,
+      storage: redisConnected ? 'Upstash Redis' : 'In-Memory (High Performance)',
+      buckets: {
+        globalApi: globalStatus,
+        authSecurity: authStatus,
+      },
+    });
+  });
+
+  // Apply Global Token Bucket to all API routes (except health & ratelimit status)
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.path === '/ratelimit/status') return next();
+    return globalTokenBucket(req, res, next);
+  });
+
+  // Apply Stricter Auth Token Bucket to sensitive auth endpoints
+  app.use('/api/auth/register', authRateLimiter);
+  app.use('/api/auth/login', authRateLimiter);
+  app.use('/api/auth/verify-email', authRateLimiter);
 
   // 1. Auth: Register (Creates Tenant & Manager in MongoDB)
   app.post('/api/auth/register', async (req, res) => {
@@ -698,7 +784,7 @@ async function startServer() {
       // Seed 15 initial products for this new tenant in MongoDB
       const baseSamples = await productsCol.find({ tenantId: 'tenant-berkah-jaya' }).limit(15).toArray();
       if (baseSamples.length > 0) {
-        const tenantProducts = baseSamples.map((p, idx) => ({
+        const tenantProducts = baseSamples.map((p: any, idx: number) => ({
           ...p,
           _id: undefined,
           id: `prod-${tenantId}-${idx + 1}`,
@@ -941,8 +1027,22 @@ async function startServer() {
     }
   });
 
-  // 6. Products: Add to MongoDB (MANAGER only)
-  app.post('/api/products', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+  // 6. Products: Add to MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.post('/api/products', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus data produk.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak menambah produk.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
     try {
       const parsed = ProductSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -995,16 +1095,30 @@ async function startServer() {
     }
   });
 
-  // 7. Products: Update in MongoDB (MANAGER only)
-  app.put('/api/products/:id', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+  // 7. Products: Update in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.put('/api/products/:id', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus data produk.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak mengubah produk.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
     try {
       const product = await productsCol.findOne({ id: req.params.id });
       if (!product) {
         return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
       }
 
-      if (product.tenantId !== req.user.tenantId && req.user.role !== 'ADMIN') {
-        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+      if (product.tenantId !== req.user.tenantId) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak. Produk ini bukan milik warung Anda.' });
       }
 
       const parsed = ProductSchema.safeParse(req.body);
@@ -1043,16 +1157,30 @@ async function startServer() {
     }
   });
 
-  // 8. Products: Delete from MongoDB (MANAGER only)
-  app.delete('/api/products/:id', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+  // 8. Products: Delete from MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.delete('/api/products/:id', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus data produk.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('products.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak menghapus produk.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
     try {
       const product = await productsCol.findOne({ id: req.params.id });
       if (!product) {
         return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
       }
 
-      if (product.tenantId !== req.user.tenantId && req.user.role !== 'ADMIN') {
-        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+      if (product.tenantId !== req.user.tenantId) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak. Produk ini bukan milik warung Anda.' });
       }
 
       await productsCol.deleteOne({ id: req.params.id });
@@ -1072,7 +1200,7 @@ async function startServer() {
         { $sort: { count: -1 } },
       ]).toArray();
 
-      const categoryList = categories.map(c => ({
+      const categoryList = categories.map((c: any) => ({
         name: c._id,
         count: c.count,
       }));
@@ -1082,6 +1210,70 @@ async function startServer() {
         totalCategories: categoryList.length,
         categories: categoryList,
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 9a. Categories: Rename / Update Category in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.put('/api/categories/rename', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus kategori.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak mengubah kategori.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
+    try {
+      const { oldCategory, newCategory } = req.body;
+      if (!oldCategory || !newCategory) {
+        return res.status(400).json({ success: false, message: 'Kategori lama dan baru wajib diisi' });
+      }
+      const tenantId = req.user.tenantId;
+      await productsCol.updateMany(
+        { tenantId, category: oldCategory },
+        { $set: { category: newCategory } }
+      );
+      res.json({ success: true, message: `Kategori "${oldCategory}" berhasil diubah menjadi "${newCategory}".` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 9b. Categories: Delete Category in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.delete('/api/categories/:name', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus kategori.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak menghapus kategori.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
+    try {
+      const categoryName = decodeURIComponent(req.params.name);
+      const tenantId = req.user.tenantId;
+      const count = await productsCol.countDocuments({ tenantId, category: categoryName });
+      if (count > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Kategori "${categoryName}" tidak dapat dihapus karena masih digunakan oleh ${count} produk. Silakan ubah kategori produk terlebih dahulu.`,
+        });
+      }
+      res.json({ success: true, message: `Kategori "${categoryName}" berhasil dihapus.` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
@@ -1254,7 +1446,7 @@ async function startServer() {
       let kasbon = 0;
       let kasbonPendingCount = 0;
 
-      orders.forEach(o => {
+      orders.forEach((o: any) => {
         totalOmzet += o.total;
         if (o.paymentMethod === 'TUNAI') {
           kasTunai += o.total;
@@ -1270,11 +1462,11 @@ async function startServer() {
         }
       });
 
-      const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
-      const totalCategories = new Set(products.map(p => p.category)).size;
+      const lowStockCount = products.filter((p: any) => p.stock <= p.minStock).length;
+      const totalCategories = new Set(products.map((p: any) => p.category)).size;
 
       const productSalesMap: { [key: string]: { name: string; count: number; revenue: number } } = {};
-      orders.forEach(o => {
+      orders.forEach((o: any) => {
         o.items.forEach((it: any) => {
           if (!productSalesMap[it.productId]) {
             productSalesMap[it.productId] = { name: it.name, count: 0, revenue: 0 };
@@ -1401,12 +1593,12 @@ async function startServer() {
     try {
       const tenantsList = await tenantsCol.find().toArray();
       const enriched = await Promise.all(
-        tenantsList.map(async (t) => {
+        tenantsList.map(async (t: any) => {
           const productCount = await productsCol.countDocuments({ tenantId: t.id });
           const userCount = await usersCol.countDocuments({ tenantId: t.id });
           const orderCount = await ordersCol.countDocuments({ tenantId: t.id });
           const orders = await ordersCol.find({ tenantId: t.id }).toArray();
-          const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+          const totalRevenue = orders.reduce((sum: number, o: any) => sum + o.total, 0);
 
           return {
             ...t,

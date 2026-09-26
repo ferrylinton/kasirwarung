@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { Product } from '../../types';
-import { X, Package, Tag, AlertCircle } from 'lucide-react';
+import { X, Package, Tag, AlertCircle, ShieldAlert } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
+import { useAuthStore } from '../../store/authStore';
 
 const ProductFormSchema = z.object({
   name: z.string().min(2, 'Nama produk minimal 2 karakter'),
@@ -41,6 +43,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
   const isEditing = Boolean(product);
 
   const [formData, setFormData] = useState({
@@ -317,20 +322,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             </div>
 
+            {isAdmin && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-800">
+                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{t('modals.productForm.adminDisabledNote', 'Tombol dinonaktifkan: Role ADMIN dilarang menambah atau mengubah data produk.')}</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
               >
-                Batal
+                {t('common.cancel', 'Batal')}
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                disabled={isSubmitting || isAdmin}
+                className="px-6 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-xl shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Tambah Produk'}
+                {isSubmitting ? t('common.saving', 'Menyimpan...') : isEditing ? t('modals.productForm.submitEdit', 'Simpan Perubahan') : t('modals.productForm.submitAdd', 'Tambah Produk')}
               </button>
             </div>
           </form>
@@ -341,10 +353,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       <ConfirmationModal
         isOpen={showConfirmUpdate}
         type="UPDATE"
-        title="Konfirmasi Perubahan Data"
-        description={`Apakah Anda yakin ingin memperbarui data produk "${product?.name}"? Perubahan harga dan stok akan langsung berlaku pada sistem kasir.`}
-        confirmText="Ya, Ubah Data"
-        cancelText="Periksa Kembali"
+        title={t('modals.saveProductTitle', 'Simpan Perubahan Produk')}
+        description={t('modals.saveProductDesc', { name: product?.name || '' })}
+        confirmText={t('modals.saveProductConfirm', 'Ya, Simpan')}
+        cancelText={t('common.cancel', 'Batal')}
         onConfirm={() => executeSave(validatedData)}
         onCancel={() => setShowConfirmUpdate(false)}
       />

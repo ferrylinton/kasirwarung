@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { Navbar } from './components/Navbar';
@@ -17,6 +18,7 @@ import { ConfirmationModal } from './components/Modals/ConfirmationModal';
 import { Product } from './types';
 
 export default function App() {
+  const { t } = useTranslation();
   const { user, token, logout, refreshMe } = useAuthStore();
   const { addToast } = useToastStore();
 
@@ -84,8 +86,8 @@ export default function App() {
     setShowLogoutConfirm(false);
     addToast({
       type: 'info',
-      title: 'Sampai Jumpa',
-      message: 'Anda telah berhasil keluar dari sistem KasirWarung.',
+      title: t('auth.logoutSuccessTitle', 'Sampai Jumpa'),
+      message: t('auth.logoutSuccessMsg', 'Anda telah berhasil keluar dari sistem KasirWarung.'),
     });
   };
 
@@ -229,10 +231,10 @@ export default function App() {
       <ConfirmationModal
         isOpen={showLogoutConfirm}
         type="LOGOUT"
-        title="Konfirmasi Keluar Aplikasi"
-        description="Apakah Anda yakin ingin keluar dari KasirWarung? Sesi kasir Anda akan diakhiri secara aman."
-        confirmText="Ya, Keluar Akun"
-        cancelText="Batal"
+        title={t('modals.logoutTitle', 'Konfirmasi Keluar Aplikasi')}
+        description={t('modals.logoutDesc', 'Apakah Anda yakin ingin keluar dari KasirWarung? Sesi kasir Anda akan diakhiri secara aman.')}
+        confirmText={t('modals.logoutConfirm', 'Ya, Keluar Akun')}
+        cancelText={t('common.cancel', 'Batal')}
         isDestructive={true}
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}

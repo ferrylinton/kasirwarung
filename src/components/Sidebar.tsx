@@ -14,6 +14,7 @@ import {
   CloudCheck,
   ShieldCheck,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
 
 export type NavTab =
@@ -42,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRequestLogout,
   productCount,
 }) => {
+  const { t } = useTranslation();
   const { user, tenant } = useAuthStore();
 
   const tenantName = tenant?.name || 'Berkah Jaya';
@@ -50,45 +52,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     {
       id: 'catalog' as NavTab,
-      label: 'Katalog Produk',
+      label: t('nav.catalog', 'Katalog Produk'),
       icon: Package,
       badge: `${productCount || 104}+`,
       roles: ['ADMIN', 'MANAGER', 'CASHIER'],
     },
     {
       id: 'categories' as NavTab,
-      label: 'Kategori & Stok',
+      label: t('nav.categories', 'Kategori & Stok'),
       icon: Layers,
       roles: ['ADMIN', 'MANAGER', 'CASHIER'],
     },
     {
       id: 'pos' as NavTab,
-      label: 'Kasir / Transaksi',
+      label: t('nav.pos', 'Kasir / Transaksi'),
       icon: Calculator,
       hasDot: true,
       roles: ['MANAGER', 'CASHIER'],
     },
     {
       id: 'history' as NavTab,
-      label: 'Riwayat Penjualan',
+      label: t('nav.history', 'Riwayat Penjualan'),
       icon: Receipt,
       roles: ['ADMIN', 'MANAGER', 'CASHIER'],
     },
     {
       id: 'dashboard' as NavTab,
-      label: 'Dashboard Statistik',
+      label: t('nav.dashboard', 'Dashboard Statistik'),
       icon: BarChart3,
       roles: ['ADMIN', 'MANAGER'],
     },
     {
       id: 'cashiers' as NavTab,
-      label: 'Kelola Staf Kasir',
+      label: t('nav.cashiers', 'Kelola Staf Kasir'),
       icon: Users2,
       roles: ['MANAGER'],
     },
     {
       id: 'tenants' as NavTab,
-      label: 'Manajemen Tenant',
+      label: t('nav.tenants', 'Manajemen Tenant'),
       icon: Building2,
       roles: ['ADMIN'],
     },
@@ -131,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onToggleCollapse}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors hidden md:block"
-            title={isCollapsed ? 'Perluas Menu' : 'Perkecil Menu'}
+            title={isCollapsed ? t('nav.expandMenu', 'Perluas Menu') : t('nav.collapseMenu', 'Perkecil Menu')}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -141,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 space-y-1">
           {!isCollapsed && (
             <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Menu Utama
+              {t('nav.mainMenu', 'Menu Utama')}
             </div>
           )}
 
@@ -194,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isCollapsed && role === 'ADMIN' && (
           <div className="px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-xl text-[11px] text-purple-800 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-purple-600 shrink-0" />
-            <span className="font-semibold">Mode Multi-Tenant Aktif</span>
+            <span className="font-semibold">{t('nav.multiTenantActive', 'Mode Multi-Tenant Aktif')}</span>
           </div>
         )}
 
@@ -203,12 +205,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
             <div className="truncate">
-              <span className="font-semibold text-slate-800">Warung Berkah</span>
-              <div className="text-[10px] text-emerald-600">Online Cloud Sync</div>
+              <span className="font-semibold text-slate-800">{tenantName}</span>
+              <div className="text-[10px] text-emerald-600">{t('nav.onlineCloudSync', 'Online Cloud Sync')}</div>
             </div>
           </div>
         ) : (
-          <div className="flex justify-center p-2 text-emerald-500" title="Online Cloud Sync">
+          <div className="flex justify-center p-2 text-emerald-500" title={t('nav.onlineCloudSync', 'Online Cloud Sync')}>
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
           </div>
         )}
@@ -217,10 +219,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={onRequestLogout}
           className="w-full flex items-center gap-3 p-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-          title="Keluar Akun"
+          title={t('nav.logout', 'Keluar Aplikasi')}
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          {!isCollapsed && <span>Keluar Aplikasi</span>}
+          {!isCollapsed && <span>{t('nav.logout', 'Keluar Aplikasi')}</span>}
         </button>
       </div>
     </aside>

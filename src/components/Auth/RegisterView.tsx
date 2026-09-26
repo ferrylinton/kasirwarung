@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { z } from 'zod';
 import { Store, User, Mail, Lock, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useToastStore } from '../../store/toastStore';
+import { LanguageSelector } from '../LanguageSelector';
 
 const RegisterFormSchema = z.object({
   tenantName: z.string().min(3, 'Nama warung / toko minimal 3 karakter'),
@@ -23,6 +25,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
   onSwitchToLogin,
   onRegisteredSuccess,
 }) => {
+  const { t, i18n } = useTranslation();
   const { addToast } = useToastStore();
 
   const [formData, setFormData] = useState({
@@ -54,19 +57,22 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
 
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-language': i18n.language || 'id',
+        },
         body: JSON.stringify(formData),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Pendaftaran gagal');
+        throw new Error(data.message || t('common.error', 'Pendaftaran gagal'));
       }
 
       addToast({
         type: 'success',
-        title: 'Pendaftaran Berhasil!',
-        message: 'Akun MANAGER telah didaftarkan dan email verifikasi telah dikirim.',
+        title: t('auth.loginSuccessTitle', 'Pendaftaran Berhasil!'),
+        message: data.message || 'Akun MANAGER telah didaftarkan dan email verifikasi telah dikirim.',
         duration: 5000,
       });
 
@@ -74,7 +80,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Pendaftaran Gagal',
+        title: t('common.error', 'Pendaftaran Gagal'),
         message: err.message,
       });
     } finally {
@@ -83,15 +89,22 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative">
+      {/* Top right language switcher in auth view */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSelector variant="auth" />
+      </div>
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative">
         <div className="text-center mb-6">
           <div className="w-14 h-14 bg-emerald-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-200 mb-3">
             <ShoppingBag className="w-8 h-8 text-amber-300" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Daftarkan Toko Kelontong</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            {t('auth.registerTitle', 'Daftarkan Toko Kelontong')}
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Akun akan didaftarkan otomatis sebagai <span className="font-bold text-emerald-700">Role MANAGER</span>
+            {t('auth.registerSubtitle', 'Mulai kelola kasir dan inventaris toko kelontong Anda sekarang.')}
           </p>
         </div>
 
@@ -99,7 +112,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           {/* Tenant Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nama Toko / Warung Kelontong <span className="text-rose-500">*</span>
+              {t('auth.storeNameLabel', 'Nama Toko / Warung Kelontong')} <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <Store className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -107,7 +120,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 type="text"
                 value={formData.tenantName}
                 onChange={(e) => setFormData({ ...formData, tenantName: e.target.value })}
-                placeholder="Contoh: Toko Berkah Jaya, Warung Bu Sri"
+                placeholder={t('auth.storeNamePlaceholder', 'Contoh: Toko Berkah Jaya')}
                 className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
                   errors.tenantName ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
                 }`}
@@ -119,7 +132,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           {/* User Full Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nama Pemilik / Manajer <span className="text-rose-500">*</span>
+              {t('auth.ownerNameLabel', 'Nama Pemilik / Manajer')} <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -127,7 +140,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Contoh: Bu Siti Rahma"
+                placeholder={t('auth.ownerNamePlaceholder', 'Contoh: Bu Siti Rahma')}
                 className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
                   errors.name ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
                 }`}
@@ -139,7 +152,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           {/* Email */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Email Warung (Untuk Verifikasi Akun) <span className="text-rose-500">*</span>
+              {t('auth.emailLabel', 'Email Warung (Untuk Verifikasi Akun)')} <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -147,7 +160,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="pemilik@warunganda.com"
+                placeholder={t('auth.emailPlaceholder', 'pemilik@warunganda.com')}
                 className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
                   errors.email ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
                 }`}
@@ -159,7 +172,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           {/* Secure Password */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Kata Sandi Aman <span className="text-rose-500">*</span>
+              {t('auth.passwordLabel', 'Kata Sandi Aman')} <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -167,7 +180,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Minimal 6 karakter, 1 huruf besar & angka"
+                placeholder={t('auth.passwordPlaceholder', 'Minimal 6 karakter, 1 huruf besar & angka')}
                 className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
                   errors.password ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
                 }`}
@@ -176,28 +189,24 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
             {errors.password && <p className="text-xs text-rose-500 mt-1">{errors.password}</p>}
           </div>
 
-          <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 leading-snug">
-            Email verifikasi akan otomatis dikirimkan ke alamat email di atas untuk mengaktifkan akun toko kelontong Anda.
-          </div>
-
           <button
             type="submit"
             disabled={loading}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer mt-2"
           >
-            <span>{loading ? 'Mendaftarkan Warung...' : 'Daftar Sebagai Manager Toko'}</span>
+            <span>{loading ? t('auth.registering', 'Mendaftarkan Warung...') : t('auth.registerBtn', 'Daftar Sebagai Manager Toko')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
         <div className="mt-5 pt-4 border-t border-slate-100 text-center">
           <p className="text-xs text-slate-600">
-            Sudah memiliki akun kasir / manager?{' '}
+            {t('auth.haveAccount', 'Sudah memiliki akun kasir / manager?')}{' '}
             <button
               onClick={onSwitchToLogin}
               className="text-emerald-700 font-bold hover:underline"
             >
-              Masuk di sini
+              {t('auth.backToLogin', 'Masuk di sini')}
             </button>
           </p>
         </div>
