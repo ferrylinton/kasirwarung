@@ -595,6 +595,13 @@ if (typeof document !== 'undefined') {
   document.documentElement.lang = savedLanguage;
 }
 
+// Ensure html lang attribute is synchronized on any i18n language change
+i18n.on('languageChanged', (lng) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = lng.startsWith('en') ? 'en' : 'id';
+  }
+});
+
 export function setAppLanguage(lang: 'id' | 'en') {
   i18n.changeLanguage(lang);
   if (typeof localStorage !== 'undefined') {

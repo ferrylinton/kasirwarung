@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const JWT_SECRET = process.env.JWT_SECRET || 'kasirwarung-jwt-supersecret-2026';
 const REDIS_URL = process.env.REDIS_URL || '';
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://ferrylinton:ferry27071983@myatlasdb.7wiaa0e.mongodb.net/kasirwarungdb?appName=MyAtlasDb';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 
 // Database & Collection References
@@ -41,17 +41,17 @@ let redisConnected = false;
 if (REDIS_URL) {
   try {
     redisClient = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: 2,
-      connectTimeout: 5000,
+      maxRetriesPerRequest: 1,
+      connectTimeout: 3000,
       lazyConnect: true,
       tls: REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
     });
 
     redisClient.connect().then(() => {
       redisConnected = true;
-      console.log('✅ Connected to Upstash Redis');
+      console.log('✅ Connected to Redis');
     }).catch((err) => {
-      console.warn('⚠️ Upstash Redis connection error:', err.message);
+      console.warn('⚠️ Redis connection error:', err.message);
       redisConnected = false;
     });
 
@@ -63,19 +63,19 @@ if (REDIS_URL) {
   }
 }
 
-// Nodemailer Transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'mail.marmeam.com',
-  port: parseInt(process.env.SMTP_PORT || '465', 10),
-  secure: process.env.SMTP_SECURE === 'true' || true,
-  auth: {
-    user: process.env.SMTP_USER || 'noreplay@marmeam.com',
-    pass: process.env.SMTP_PASS || 'noreplay123456',
-  },
+// Nodemailer Transporter (configured only when SMTP_HOST is provided)
+const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: process.env.SMTP_USER ? {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS || '',
+  } : undefined,
   tls: {
     rejectUnauthorized: false,
   },
-});
+}) : null;
 
 // Zod Validation Schemas
 const RegisterSchema = z.object({
@@ -157,12 +157,23 @@ function requireRole(allowedRoles: Array<'ADMIN' | 'MANAGER' | 'CASHIER'>) {
   };
 }
 
-// Connect to MongoDB Atlas and Seed Initial Data
+// Connect to MongoDB or activate in-memory engine and Seed Initial Data
 async function initMongoDB() {
+  if (!MONGODB_URI) {
+    console.log('🛡️ Activating MongoDB-compatible In-Memory engine for KasirWarung...');
+    isMongoLive = false;
+    const count = await tenantsCol.countDocuments();
+    if (count === 0) {
+      await seedMongoData();
+      console.log('✅ Seeded KasirWarung initial dataset into MongoDB-compatible engine.');
+    }
+    return;
+  }
+
   try {
-    console.log('🔄 Connecting to MongoDB Atlas...');
+    console.log('🔄 Connecting to MongoDB...');
     mongoClient = new MongoClient(MONGODB_URI, {
-      serverSelectionTimeoutMS: 6000,
+      serverSelectionTimeoutMS: 2500,
     });
     await mongoClient.connect();
     db = mongoClient.db('kasirwarungdb');
@@ -180,18 +191,18 @@ async function initMongoDB() {
     await ordersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
 
     isMongoLive = true;
-    console.log('✅ Connected to MongoDB Atlas (kasirwarungdb) successfully!');
+    console.log('✅ Connected to MongoDB successfully!');
 
     // Check if initial seeding is needed
     const tenantCount = await tenantsCol.countDocuments();
     if (tenantCount === 0) {
-      console.log('🌱 Seeding initial data to MongoDB Atlas...');
+      console.log('🌱 Seeding initial data to MongoDB...');
       await seedMongoData();
     } else {
-      console.log(`📊 Found ${tenantCount} existing tenants in MongoDB Atlas.`);
+      console.log(`📊 Found ${tenantCount} existing tenants in MongoDB.`);
     }
   } catch (err: any) {
-    console.warn('⚠️ MongoDB Atlas network warning:', err.message);
+    console.warn('⚠️ MongoDB connection warning:', err.message);
     console.log('🛡️ Activating MongoDB-compatible In-Memory engine for KasirWarung...');
     isMongoLive = false;
     const count = await tenantsCol.countDocuments();
@@ -756,29 +767,33 @@ async function startServer() {
       // Send Verification Email
       const verifyLink = `${APP_URL}/verify-email?token=${verificationToken}`;
       let emailSent = false;
-      try {
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || 'KasirWarung <noreplay@marmeam.com>',
-          to: email,
-          subject: `Verifikasi Akun Warung: ${tenantName} - KasirWarung`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <h2 style="color: #059669;">KasirWarung</h2>
-              <h3>Selamat Datang, ${name}!</h3>
-              <p>Terima kasih telah mendaftarkan warung Anda <strong>"${tenantName}"</strong> sebagai <strong>Role MANAGER</strong>.</p>
-              <p>Klik tombol di bawah ini untuk memverifikasi akun Anda:</p>
-              <div style="margin: 20px 0;">
-                <a href="${verifyLink}" style="background-color: #059669; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                  Verifikasi Akun Saya
-                </a>
+      if (transporter) {
+        try {
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || 'KasirWarung <noreply@example.com>',
+            to: email,
+            subject: `Verifikasi Akun Warung: ${tenantName} - KasirWarung`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #059669;">KasirWarung</h2>
+                <h3>Selamat Datang, ${name}!</h3>
+                <p>Terima kasih telah mendaftarkan warung Anda <strong>"${tenantName}"</strong> sebagai <strong>Role MANAGER</strong>.</p>
+                <p>Klik tombol di bawah ini untuk memverifikasi akun Anda:</p>
+                <div style="margin: 20px 0;">
+                  <a href="${verifyLink}" style="background-color: #059669; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Verifikasi Akun Saya
+                  </a>
+                </div>
+                <p style="color: #64748b; font-size: 12px;">Link alternatif: <br>${verifyLink}</p>
               </div>
-              <p style="color: #64748b; font-size: 12px;">Link alternatif: <br>${verifyLink}</p>
-            </div>
-          `,
-        });
-        emailSent = true;
-      } catch (err: any) {
-        console.warn('⚠️ SMTP send error:', err.message);
+            `,
+          });
+          emailSent = true;
+        } catch (err: any) {
+          console.warn('⚠️ SMTP send error:', err.message);
+        }
+      } else {
+        console.log(`📧 [Verification Link] For ${email}: ${verifyLink}`);
       }
 
       // Seed 15 initial products for this new tenant in MongoDB
