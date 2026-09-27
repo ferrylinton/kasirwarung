@@ -52,7 +52,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
         throw new Error(data.message || t('common.error', 'Verifikasi gagal'));
       }
 
-      setAuth(data.token, data.user);
+      setAuth(data.token, data.user, undefined, data.refreshToken);
       addToast({
         type: 'success',
         title: t('auth.loginSuccessTitle', 'Verifikasi Berhasil!'),

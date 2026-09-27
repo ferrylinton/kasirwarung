@@ -62,7 +62,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         throw new Error(data.message || t('common.error', 'Gagal masuk akun'));
       }
 
-      setAuth(data.token, data.user);
+      setAuth(data.token, data.user, undefined, data.refreshToken);
       addToast({
         type: 'success',
         title: t('auth.loginSuccessTitle', 'Login Berhasil'),

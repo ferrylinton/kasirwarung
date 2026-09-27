@@ -9,6 +9,8 @@ import { ProductCatalogView } from './components/Catalog/ProductCatalogView';
 import { SalesHistoryView } from './components/Sales/SalesHistoryView';
 import { TenantDashboardView } from './components/Dashboard/TenantDashboardView';
 import { CashierManagementView } from './components/Manager/CashierManagementView';
+import { ProductManagementView } from './components/Manager/ProductManagementView';
+import { CategoryManagementView } from './components/Manager/CategoryManagementView';
 import { TenantManagementView } from './components/Admin/TenantManagementView';
 import { LoginView } from './components/Auth/LoginView';
 import { RegisterView } from './components/Auth/RegisterView';
@@ -19,7 +21,7 @@ import { Product } from './types';
 
 export default function App() {
   const { t } = useTranslation();
-  const { user, token, logout, refreshMe } = useAuthStore();
+  const { user, token, logout, refreshMe, refreshTokenIfExpiring, idleTimeoutMinutes, setIdleTimeoutMinutes } = useAuthStore();
   const { addToast } = useToastStore();
 
   // Navigation & UI state
@@ -50,10 +52,105 @@ export default function App() {
     }
   }, []);
 
+  // Fetch public auth configuration (idle timeout minutes from backend env)
+  useEffect(() => {
+    fetch('/api/auth/config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.idleTimeoutMinutes === 'number' && data.idleTimeoutMinutes > 0) {
+          setIdleTimeoutMinutes(data.idleTimeoutMinutes);
+        }
+      })
+      .catch(() => {});
+  }, [setIdleTimeoutMinutes]);
+
   // Fetch current user and products
   useEffect(() => {
     refreshMe();
   }, []);
+
+  // Proactive Token Expiration Check:
+  // When user is logged in, check token remaining time periodically (every 15s).
+  // If remaining time is less than 1 minute, refresh token from backend.
+  useEffect(() => {
+    if (!token || !user) return;
+
+    // Run check immediately
+    refreshTokenIfExpiring();
+
+    const interval = setInterval(() => {
+      refreshTokenIfExpiring();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [token, user?.id]);
+
+  // ⏱️ Auto-Logout on Inactivity (User Activity Idle Timeout)
+  // Automatically logs the user out if there is no user activity for idleTimeoutMinutes (default: 5 minutes)
+  useEffect(() => {
+    if (!user || !token) return;
+
+    const timeoutDurationMs = (idleTimeoutMinutes || 5) * 60 * 1000;
+    let lastActivityTime = Date.now();
+    let idleCheckInterval: any = null;
+
+    const resetActivity = () => {
+      lastActivityTime = Date.now();
+    };
+
+    // User activity events across desktop and touch devices
+    const activityEvents = [
+      'mousedown',
+      'mousemove',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'click',
+      'wheel',
+    ];
+
+    // Debounce listener attachment to minimize overhead
+    let throttleTimeout: any = null;
+    const handleUserActivity = () => {
+      if (!throttleTimeout) {
+        throttleTimeout = setTimeout(() => {
+          resetActivity();
+          throttleTimeout = null;
+        }, 1000);
+      }
+    };
+
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, handleUserActivity, { passive: true });
+    });
+
+    // Check every 5 seconds whether the idle timeout has elapsed
+    idleCheckInterval = setInterval(() => {
+      const elapsedMs = Date.now() - lastActivityTime;
+      if (elapsedMs >= timeoutDurationMs) {
+        console.warn(`⏳ User idle for ${Math.round(elapsedMs / 1000)}s (limit: ${idleTimeoutMinutes}m). Logging out...`);
+        logout('IDLE_TIMEOUT');
+        setShowLogoutConfirm(false);
+        addToast({
+          type: 'warning',
+          title: t('auth.idleLogoutTitle', 'Sesi Berakhir Karena Tidak Ada Aktivitas'),
+          message: t('auth.idleLogoutMsg', {
+            defaultValue: `Anda telah otomatis dikeluarkan dari sistem karena tidak ada aktivitas selama ${idleTimeoutMinutes} menit.`,
+            minutes: idleTimeoutMinutes,
+          }),
+          duration: 8000,
+        });
+      }
+    }, 5000);
+
+    return () => {
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, handleUserActivity);
+      });
+      if (idleCheckInterval) clearInterval(idleCheckInterval);
+      if (throttleTimeout) clearTimeout(throttleTimeout);
+    };
+  }, [user?.id, token, idleTimeoutMinutes, logout, addToast, t]);
 
   const fetchProducts = async () => {
     if (!token) return;
@@ -199,6 +296,22 @@ export default function App() {
               products={products}
               onRefreshProducts={fetchProducts}
               onNavigateToPOS={() => setCurrentTab('pos')}
+            />
+          )}
+
+          {currentTab === 'product-management' && (
+            <ProductManagementView
+              products={products}
+              onRefreshProducts={fetchProducts}
+              onNavigateToCategories={() => setCurrentTab('category-management')}
+            />
+          )}
+
+          {currentTab === 'category-management' && (
+            <CategoryManagementView
+              products={products}
+              onRefreshProducts={fetchProducts}
+              onNavigateToProducts={() => setCurrentTab('product-management')}
             />
           )}
 

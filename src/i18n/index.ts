@@ -54,6 +54,8 @@ export const idTranslations = {
   nav: {
     catalog: 'Katalog Produk',
     categories: 'Kategori & Stok',
+    productManagement: 'Manajemen Produk',
+    categoryManagement: 'Manajemen Kategori',
     pos: 'Kasir / Transaksi',
     history: 'Riwayat Penjualan',
     dashboard: 'Dashboard Statistik',
@@ -114,6 +116,8 @@ export const idTranslations = {
     loginSuccessMsg: 'Selamat datang kembali di KasirWarung!',
     logoutSuccessTitle: 'Sampai Jumpa',
     logoutSuccessMsg: 'Anda telah berhasil keluar dari sistem KasirWarung.',
+    idleLogoutTitle: 'Sesi Berakhir Karena Tidak Ada Aktivitas',
+    idleLogoutMsg: 'Anda telah otomatis dikeluarkan dari sistem karena tidak ada aktivitas selama {{minutes}} menit.',
   },
   pos: {
     title: 'Mesin Kasir / Point of Sale',
@@ -339,6 +343,8 @@ export const enTranslations = {
   nav: {
     catalog: 'Product Catalog',
     categories: 'Categories & Stock',
+    productManagement: 'Product Management',
+    categoryManagement: 'Category Management',
     pos: 'Cashier / POS',
     history: 'Sales History',
     dashboard: 'Statistics Dashboard',
@@ -399,6 +405,8 @@ export const enTranslations = {
     loginSuccessMsg: 'Welcome back to KasirWarung!',
     logoutSuccessTitle: 'See You Soon',
     logoutSuccessMsg: 'You have successfully signed out of KasirWarung.',
+    idleLogoutTitle: 'Session Expired Due to Inactivity',
+    idleLogoutMsg: 'You have been automatically logged out due to no activity for {{minutes}} minutes.',
   },
   pos: {
     title: 'Cashier / Point of Sale',

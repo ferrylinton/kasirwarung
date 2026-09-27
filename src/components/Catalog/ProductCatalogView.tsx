@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Layers,
@@ -50,6 +50,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
 
+  // Reset to page 1 on filter, category, search, or sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, search, sortOption]);
+
   // Modals state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -69,11 +74,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       count: categoriesMap[cat],
     })),
   ];
-
-  // Stats calculation
-  const totalActive = products.length;
-  const totalCategoriesCount = Object.keys(categoriesMap).length;
-  const lowStockCount = products.filter((p) => p.stock <= p.minStock).length;
 
   // Filtered & Sorted products
   let filtered = products.filter((p) => {
@@ -231,7 +231,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
         </div>
       )}
 
-      {/* Top Header & Stat Cards matching Image 3 */}
+      {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="text-[11px] font-bold text-emerald-700 tracking-wider uppercase mb-1 flex items-center gap-1.5">
@@ -244,39 +244,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
             {t('catalog.subtitle', 'Kelola ratusan varian sembako, harga modal, harga jual, dan stok realtime.')}
           </p>
-        </div>
-
-        {/* 3 Stat Badges */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
-          <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-2xl shadow-xs min-w-[130px]">
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-              <Package className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold text-slate-500 uppercase">{t('common.all', 'Total Produk')}</div>
-              <div className="text-sm font-black text-slate-900 font-mono">{totalActive} {t('common.active', 'Aktif')}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-2xl shadow-xs min-w-[130px]">
-            <div className="p-2.5 bg-teal-50 text-teal-600 rounded-xl">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold text-slate-500 uppercase">{t('common.category', 'Kategori')}</div>
-              <div className="text-sm font-black text-slate-900 font-mono">{totalCategoriesCount}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 bg-white border border-rose-100 bg-rose-50/30 rounded-2xl shadow-xs min-w-[130px]">
-            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold text-rose-500 uppercase">{t('catalog.lowStockOnly', 'Perlu Restock')}</div>
-              <div className="text-sm font-black text-rose-700 font-mono">{lowStockCount}</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -346,7 +313,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
           </div>
 
           {/* Grid / List toggle */}
-          <div className="hidden sm:flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-xs">
+          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-xs">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-lg ${viewMode === 'grid' ? 'bg-slate-100 text-slate-900' : 'text-slate-400'}`}
@@ -362,20 +329,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
               <List className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Add Product Button (Role MANAGER only) */}
-          {isManager && (
-            <button
-              onClick={() => {
-                setEditingProduct(null);
-                setIsProductModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{t('catalog.addProduct', 'Tambah Produk')}</span>
-            </button>
-          )}
         </div>
       </div>
 

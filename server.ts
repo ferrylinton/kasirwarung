@@ -12,6 +12,8 @@ import { z } from 'zod';
 import { createTokenBucketMiddleware, getBucketStatus } from './server/tokenBucket.js';
 import { MemoryCollection } from './server/mongoMemoryFallback.js';
 import { i18nMiddleware, initBackendI18n, i18next } from './server/i18n.js';
+import { tokenStore } from './server/tokenStore.js';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -20,9 +22,65 @@ const __dirname = path.dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const JWT_SECRET = process.env.JWT_SECRET || 'kasirwarung-jwt-supersecret-2026';
+const ACCESS_TOKEN_EXPIRES = process.env.ACCESS_TOKEN_EXPIRES || '15m';
+const REFRESH_TOKEN_EXPIRES = process.env.REFRESH_TOKEN_EXPIRES || '1d';
+const IDLE_TIMEOUT_MINUTES = parseFloat(process.env.IDLE_TIMEOUT_MINUTES || process.env.VITE_IDLE_TIMEOUT_MINUTES || '5');
 const REDIS_URL = process.env.REDIS_URL || '';
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
+
+// Helper: parse human expiration string into seconds (e.g. '15m' -> 900, '1d' -> 86400)
+function parseDurationToSeconds(durationStr: string, defaultSec: number): number {
+  if (!durationStr) return defaultSec;
+  const match = durationStr.toString().trim().match(/^(\d+)\s*(s|m|h|d|w)?$/i);
+  if (!match) return defaultSec;
+  const num = parseInt(match[1], 10);
+  const unit = (match[2] || 's').toLowerCase();
+  switch (unit) {
+    case 's': return num;
+    case 'm': return num * 60;
+    case 'h': return num * 3600;
+    case 'd': return num * 86400;
+    case 'w': return num * 86400 * 7;
+    default: return defaultSec;
+  }
+}
+
+const ACCESS_TOKEN_TTL_SEC = parseDurationToSeconds(ACCESS_TOKEN_EXPIRES, 15 * 60);
+const REFRESH_TOKEN_TTL_SEC = parseDurationToSeconds(REFRESH_TOKEN_EXPIRES, 24 * 60 * 60);
+
+// Helper to generate access & refresh token pair with unique JTI claims
+function generateTokens(user: { id: string; email: string; name: string; role: string; tenantId: string | null; tenantName: string | null }) {
+  const accessJti = `acc-${user.id}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+  const refreshJti = `ref-${user.id}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+
+  const accessToken = jwt.sign(
+    {
+      jti: accessJti,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+      tenantName: user.tenantName,
+      type: 'access',
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRES as any }
+  );
+
+  const refreshToken = jwt.sign(
+    {
+      jti: refreshJti,
+      id: user.id,
+      type: 'refresh',
+    },
+    JWT_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRES as any }
+  );
+
+  return { accessToken, refreshToken, accessJti, refreshJti };
+}
 
 // Database & Collection References
 let mongoClient: MongoClient | null = null;
@@ -62,6 +120,9 @@ if (REDIS_URL) {
     console.warn('⚠️ Redis initialization error');
   }
 }
+
+// Hook up tokenStore with Redis client and connection status
+tokenStore.setRedis(redisClient, () => redisConnected);
 
 // Nodemailer Transporter (configured only when SMTP_HOST is provided)
 const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
@@ -123,8 +184,8 @@ const CashierUserSchema = z.object({
   password: z.string().min(6, 'Kata sandi kasir minimal 6 karakter'),
 });
 
-// Auth Middleware
-function authenticateToken(req: any, res: any, next: any) {
+// Auth Middleware - checks Token Denylist (Blocklist) on every request
+async function authenticateToken(req: any, res: any, next: any) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -134,10 +195,34 @@ function authenticateToken(req: any, res: any, next: any) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // Check if token's jti is in the Token Denylist
+    if (decoded.jti) {
+      const revoked = await tokenStore.isDenylisted(decoded.jti);
+      if (revoked) {
+        return res.status(401).json({
+          success: false,
+          code: 'TOKEN_REVOKED',
+          message: 'Sesi telah berakhir atau Anda telah logout. Token berada dalam denylist.',
+        });
+      }
+    }
+
+    // Attach raw token, decoded payload, and remaining time
+    req.rawToken = token;
     req.user = decoded;
+    if (decoded.exp) {
+      const nowSec = Math.floor(Date.now() / 1000);
+      req.tokenRemainingSeconds = Math.max(0, decoded.exp - nowSec);
+    }
+
     next();
-  } catch (err) {
-    return res.status(403).json({ success: false, message: 'Sesi berakhir atau token tidak sah. Silakan login kembali.' });
+  } catch (err: any) {
+    return res.status(403).json({
+      success: false,
+      code: 'TOKEN_INVALID',
+      message: 'Sesi berakhir atau token tidak sah. Silakan login kembali.',
+    });
   }
 }
 
@@ -689,6 +774,17 @@ async function startServer() {
     });
   });
 
+  // Public Auth Configuration (e.g. idle timeout minutes from env file)
+  app.get('/api/auth/config', (req, res) => {
+    res.json({
+      success: true,
+      idleTimeoutMinutes: IDLE_TIMEOUT_MINUTES,
+      idleTimeoutSeconds: Math.round(IDLE_TIMEOUT_MINUTES * 60),
+      accessTokenExpires: ACCESS_TOKEN_EXPIRES,
+      refreshTokenExpires: REFRESH_TOKEN_EXPIRES,
+    });
+  });
+
   // Apply Global Token Bucket to all API routes (except health & ratelimit status)
   app.use('/api', (req, res, next) => {
     if (req.path === '/health' || req.path === '/ratelimit/status') return next();
@@ -872,23 +968,42 @@ async function startServer() {
         await redisClient.del(`verify:${token}`).catch(() => {});
       }
 
-      const jwtToken = jwt.sign(
+      // Generate access & refresh token pair with unique JTI claims
+      const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
+      });
+
+      // Track logged user status in Redis with a TTL matching token's expiration
+      await tokenStore.setLoggedUserStatus(
+        user.id,
         {
-          id: user.id,
+          userId: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           tenantId: user.tenantId,
-          tenantName: user.tenantName,
+          lastActive: new Date().toISOString(),
+          loginTime: new Date().toISOString(),
+          status: 'LOGGED_IN',
         },
-        JWT_SECRET,
-        { expiresIn: '7d' }
+        ACCESS_TOKEN_TTL_SEC
       );
+
+      // Store refresh token
+      await tokenStore.storeRefreshToken(user.id, refreshJti, REFRESH_TOKEN_TTL_SEC);
 
       return res.json({
         success: true,
         message: 'Selamat! Akun warung Anda di MongoDB telah terverifikasi.',
-        token: jwtToken,
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        expiresIn: ACCESS_TOKEN_TTL_SEC,
         user: {
           id: user.id,
           name: user.name,
@@ -904,7 +1019,7 @@ async function startServer() {
     }
   });
 
-  // 3. Auth: Login (Validates against MongoDB)
+  // 3. Auth: Login (Validates against MongoDB, generates JTI token pair, and tracks status in Redis)
   app.post('/api/auth/login', async (req, res) => {
     try {
       const parsed = LoginSchema.safeParse(req.body);
@@ -938,23 +1053,43 @@ async function startServer() {
         }
       }
 
-      const token = jwt.sign(
+      // Generate access & refresh token pair with unique JTI claims
+      const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
+      });
+
+      // Track logged user status in Redis with a TTL matching token's expiration
+      await tokenStore.setLoggedUserStatus(
+        user.id,
         {
-          id: user.id,
+          userId: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           tenantId: user.tenantId,
           tenantName: user.tenantName,
+          lastActive: new Date().toISOString(),
+          loginTime: new Date().toISOString(),
+          status: 'LOGGED_IN',
         },
-        JWT_SECRET,
-        { expiresIn: '7d' }
+        ACCESS_TOKEN_TTL_SEC
       );
+
+      // Store refresh token
+      await tokenStore.storeRefreshToken(user.id, refreshJti, REFRESH_TOKEN_TTL_SEC);
 
       return res.json({
         success: true,
         message: `Selamat datang kembali, ${user.name}!`,
-        token,
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        expiresIn: ACCESS_TOKEN_TTL_SEC,
         user: {
           id: user.id,
           name: user.name,
@@ -970,7 +1105,143 @@ async function startServer() {
     }
   });
 
-  // 4. Auth: Me from MongoDB
+  // 4. Auth: Refresh Token (Generates a new access token when remaining time < 1 minute)
+  app.post('/api/auth/refresh', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      const currentToken = req.body?.refreshToken || (authHeader && authHeader.split(' ')[1]);
+
+      if (!currentToken) {
+        return res.status(401).json({
+          success: false,
+          code: 'NO_TOKEN',
+          message: 'Token otentikasi atau refresh token tidak ditemukan.',
+        });
+      }
+
+      let decoded: any;
+      try {
+        decoded = jwt.verify(currentToken, JWT_SECRET, { ignoreExpiration: req.body?.allowExpired ? true : false }) as any;
+      } catch (e: any) {
+        return res.status(403).json({
+          success: false,
+          code: 'TOKEN_INVALID',
+          message: 'Token tidak sah untuk refresh.',
+        });
+      }
+
+      // If token has JTI and is denylisted, reject immediately
+      if (decoded.jti && await tokenStore.isDenylisted(decoded.jti)) {
+        return res.status(401).json({
+          success: false,
+          code: 'TOKEN_REVOKED',
+          message: 'Token ini telah masuk dalam denylist.',
+        });
+      }
+
+      const user = await usersCol.findOne({ id: decoded.id });
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
+      }
+
+      // Check tenant status
+      if (user.tenantId) {
+        const tenant = await tenantsCol.findOne({ id: user.tenantId });
+        if (tenant && tenant.status === 'SUSPENDED') {
+          return res.status(403).json({ success: false, message: 'Toko warung Anda dinonaktifkan.' });
+        }
+      }
+
+      // Old token can be denylisted if it had a JTI to prevent reuse
+      if (decoded.jti && decoded.exp) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const remainingTtl = decoded.exp - nowSec;
+        if (remainingTtl > 0) {
+          await tokenStore.addToDenylist(decoded.jti, remainingTtl);
+        }
+      }
+
+      // Generate new token pair
+      const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
+      });
+
+      // Update logged user status in Redis with new TTL
+      await tokenStore.setLoggedUserStatus(
+        user.id,
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+          lastActive: new Date().toISOString(),
+          refreshedAt: new Date().toISOString(),
+          status: 'LOGGED_IN',
+        },
+        ACCESS_TOKEN_TTL_SEC
+      );
+
+      await tokenStore.storeRefreshToken(user.id, refreshJti, REFRESH_TOKEN_TTL_SEC);
+
+      return res.json({
+        success: true,
+        message: 'Token otentikasi berhasil diperbarui.',
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        expiresIn: ACCESS_TOKEN_TTL_SEC,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          tenantId: user.tenantId,
+          tenantName: user.tenantName,
+          isVerified: user.isVerified,
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: 'Gagal memperbarui token: ' + err.message });
+    }
+  });
+
+  // 5. Auth: Logout (Adds token's jti to the Token Denylist with a TTL matching token's expiration)
+  app.post('/api/auth/logout', authenticateToken, async (req: any, res) => {
+    try {
+      const decoded = req.user;
+      const rawToken = req.rawToken;
+
+      if (decoded && decoded.jti) {
+        // Calculate remaining seconds matching the token's expiration
+        const nowSec = Math.floor(Date.now() / 1000);
+        const ttlSeconds = decoded.exp ? Math.max(1, decoded.exp - nowSec) : ACCESS_TOKEN_TTL_SEC;
+
+        // Add token's jti to the denylist with a TTL matching the token's expiration
+        await tokenStore.addToDenylist(decoded.jti, ttlSeconds);
+      }
+
+      // Remove logged user status from Redis
+      if (decoded && decoded.id) {
+        await tokenStore.removeLoggedUserStatus(decoded.id);
+      }
+
+      return res.json({
+        success: true,
+        message: 'Logout berhasil. Token Anda telah dimasukkan ke Token Denylist.',
+        jtiRevoked: decoded?.jti || null,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: 'Gagal memproses logout: ' + err.message });
+    }
+  });
+
+  // 6. Auth: Me from MongoDB + returns remaining token TTL and Redis status
   app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
     try {
       const user = await usersCol.findOne({ id: req.user.id });
@@ -979,6 +1250,27 @@ async function startServer() {
       }
 
       const tenant = user.tenantId ? await tenantsCol.findOne({ id: user.tenantId }) : null;
+
+      // Update last active in Redis logged user status
+      const remainingSec = req.tokenRemainingSeconds ?? ACCESS_TOKEN_TTL_SEC;
+      if (remainingSec > 0) {
+        await tokenStore.setLoggedUserStatus(
+          user.id,
+          {
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            tenantId: user.tenantId,
+            lastActive: new Date().toISOString(),
+            status: 'LOGGED_IN',
+          },
+          remainingSec
+        );
+      }
+
+      // Retrieve Redis logged user status
+      const sessionStatus = await tokenStore.getLoggedUserStatus(user.id);
 
       res.json({
         success: true,
@@ -992,6 +1284,46 @@ async function startServer() {
           isVerified: user.isVerified,
         },
         tenant,
+        tokenMeta: {
+          jti: req.user.jti,
+          remainingSeconds: remainingSec,
+          shouldRefresh: remainingSec < 60,
+          idleTimeoutMinutes: IDLE_TIMEOUT_MINUTES,
+          idleTimeoutSeconds: Math.round(IDLE_TIMEOUT_MINUTES * 60),
+        },
+        sessionStatus,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Diagnostics: Token Denylist and Redis Session status
+  app.get('/api/auth/session-diagnostics', authenticateToken, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jti = req.user.jti;
+      const isRevoked = jti ? await tokenStore.isDenylisted(jti) : false;
+      const userStatus = await tokenStore.getLoggedUserStatus(userId);
+
+      res.json({
+        success: true,
+        user: {
+          id: userId,
+          role: req.user.role,
+        },
+        tokenMeta: {
+          jti,
+          remainingSeconds: req.tokenRemainingSeconds,
+          isDenylisted: isRevoked,
+          accessTokenExpiresConfig: ACCESS_TOKEN_EXPIRES,
+          refreshTokenExpiresConfig: REFRESH_TOKEN_EXPIRES,
+          idleTimeoutMinutesConfig: IDLE_TIMEOUT_MINUTES,
+        },
+        redisStatus: {
+          redisConnected,
+          userStatus,
+        },
       });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -1230,7 +1562,46 @@ async function startServer() {
     }
   });
 
-  // 9a. Categories: Rename / Update Category in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  // 9a. Categories: Create / Register Category in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
+  app.post('/api/categories', authenticateToken, (req: any, res, next) => {
+    if (req.user?.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.adminForbidden') : 'Akses ditolak: Role ADMIN dilarang menambah, mengubah, atau menghapus kategori.',
+      });
+    }
+    if (req.user?.role !== 'MANAGER') {
+      return res.status(403).json({
+        success: false,
+        message: req.t ? req.t('categories.managerRequired') : 'Akses ditolak: Hanya role MANAGER yang berhak menambah kategori.',
+      });
+    }
+    next();
+  }, async (req: any, res) => {
+    try {
+      const name = (req.body.name || '').trim();
+      if (!name || name.length < 2) {
+        return res.status(400).json({ success: false, message: 'Nama kategori minimal 2 karakter' });
+      }
+      const tenantId = req.user.tenantId;
+
+      // Check if any product already exists with this category
+      const existing = await productsCol.findOne({ tenantId, category: name });
+      if (existing) {
+        return res.status(400).json({ success: false, message: `Kategori "${name}" sudah ada dalam sistem warung Anda.` });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `Kategori "${name}" siap digunakan untuk produk sembako!`,
+        category: { name, count: 0 },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 9b. Categories: Rename / Update Category in MongoDB (MANAGER only - Role ADMIN is strictly disallowed)
   app.put('/api/categories/rename', authenticateToken, (req: any, res, next) => {
     if (req.user?.role === 'ADMIN') {
       return res.status(403).json({

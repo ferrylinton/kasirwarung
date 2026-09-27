@@ -13,6 +13,8 @@ import {
   ShoppingBag,
   CloudCheck,
   ShieldCheck,
+  Boxes,
+  FolderTree,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
@@ -20,6 +22,8 @@ import { useAuthStore } from '../store/authStore';
 export type NavTab =
   | 'catalog'
   | 'categories'
+  | 'product-management'
+  | 'category-management'
   | 'pos'
   | 'history'
   | 'dashboard'
@@ -58,10 +62,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       roles: ['ADMIN', 'MANAGER', 'CASHIER'],
     },
     {
+      id: 'product-management' as NavTab,
+      label: t('nav.productManagement', 'Manajemen Produk'),
+      icon: Boxes,
+      roles: ['MANAGER'],
+    },
+    {
+      id: 'category-management' as NavTab,
+      label: t('nav.categoryManagement', 'Manajemen Kategori'),
+      icon: FolderTree,
+      roles: ['MANAGER'],
+    },
+    {
       id: 'categories' as NavTab,
       label: t('nav.categories', 'Kategori & Stok'),
       icon: Layers,
-      roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+      roles: ['ADMIN', 'CASHIER'],
     },
     {
       id: 'pos' as NavTab,
@@ -204,9 +220,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isCollapsed ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
-            <div className="truncate">
-              <span className="font-semibold text-slate-800">{tenantName}</span>
-              <div className="text-[10px] text-emerald-600">{t('nav.onlineCloudSync', 'Online Cloud Sync')}</div>
+            <div className="truncate flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-800 truncate">{tenantName}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-emerald-600 font-medium">
+                <span>{t('nav.onlineCloudSync', 'Online Cloud Sync')}</span>
+              </div>
             </div>
           </div>
         ) : (
