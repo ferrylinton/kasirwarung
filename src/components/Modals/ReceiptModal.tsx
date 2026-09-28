@@ -39,16 +39,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       `No. Nota: ${order.orderNumber}\n` +
       `Waktu: ${new Date(order.createdAt).toLocaleString('id-ID')}\n` +
       `Kasir: ${order.cashierName}\n` +
-      `Pelanggan: ${order.customerName}\n` +
       `--------------------------------\n` +
       order.items.map(it => `${it.name}\n${it.qty} x Rp ${it.price.toLocaleString('id-ID')} = Rp ${it.subtotal.toLocaleString('id-ID')}`).join('\n') +
       `\n--------------------------------\n` +
       `*Total: Rp ${order.total.toLocaleString('id-ID')}*\n` +
-      `Metode: ${order.paymentMethod} (${order.paymentStatus})\n` +
+      `Metode: ${order.paymentMethod === 'TUNAI' ? 'Uang Tunai' : order.paymentMethod}\n` +
       (order.paymentMethod === 'TUNAI' ? `Bayar: Rp ${order.tenderAmount.toLocaleString('id-ID')}\nKembalian: Rp ${order.changeAmount.toLocaleString('id-ID')}\n` : '') +
       `Terima kasih sudah berbelanja di warung kami!`
     );
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    const a = document.createElement('a');
+    a.href = `https://wa.me/?text=${text}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     addToast({
       type: 'success',
       title: 'WhatsApp Disiapkan',
@@ -65,19 +70,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Pratinjau Struk Kasir
             </span>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                order.paymentStatus === 'LUNAS'
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              {order.paymentStatus}
-            </span>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -120,13 +116,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <span className="text-slate-500">Kasir</span>
               <span className="text-slate-800">{order.cashierName}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Pelanggan</span>
-              <span className="font-semibold text-emerald-700">
-                {order.customerName}
-                {order.customerNote ? ` (${order.customerNote})` : ''}
-              </span>
-            </div>
           </div>
 
           {/* Items */}
@@ -148,18 +137,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
           {/* Totals */}
           <div className="py-2.5 space-y-1.5 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal ({order.items.reduce((s, it) => s + it.qty, 0)} Item)</span>
-              <span>Rp {order.subtotal.toLocaleString('id-ID')}</span>
-            </div>
-            {order.discount > 0 && (
-              <div className="flex justify-between text-emerald-600">
-                <span>Potongan Diskon</span>
-                <span>- Rp {order.discount.toLocaleString('id-ID')}</span>
-              </div>
-            )}
             <div className="flex justify-between items-center text-sm font-bold text-slate-900 pt-1 border-t border-slate-200">
-              <span>Total Akhir</span>
+              <span>Total Belanja</span>
               <span className="text-base text-emerald-700 font-sans">
                 Rp {order.total.toLocaleString('id-ID')}
               </span>
@@ -168,9 +147,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="pt-2 text-[11px] space-y-1 border-t border-dashed border-slate-300">
               <div className="flex justify-between">
                 <span className="text-slate-500">Metode Pembayaran</span>
-                <span className="font-semibold text-slate-800">{order.paymentMethod}</span>
+                <span className="font-semibold text-slate-800">
+                  {order.paymentMethod === 'TUNAI' ? 'Uang Tunai' : order.paymentMethod}
+                </span>
               </div>
-              {order.paymentMethod === 'TUNAI' ? (
+              {order.paymentMethod === 'TUNAI' && (
                 <>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Bayar Tunai</span>
@@ -183,11 +164,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     </span>
                   </div>
                 </>
-              ) : (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Status</span>
-                  <span className="font-bold text-emerald-600">{order.paymentStatus}</span>
-                </div>
               )}
             </div>
           </div>

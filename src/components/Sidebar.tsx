@@ -7,12 +7,11 @@ import {
   BarChart3,
   Users2,
   Building2,
+  Store,
   LogOut,
   ChevronLeft,
   ChevronRight,
   ShoppingBag,
-  CloudCheck,
-  ShieldCheck,
   Boxes,
   FolderTree,
   User,
@@ -32,6 +31,8 @@ export type NavTab =
   | 'history'
   | 'dashboard'
   | 'cashiers'
+  | 'tenants'
+  | 'tenant-info'
   | 'activity-log'
   | 'login-history'
   | 'tenants'
@@ -60,6 +61,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const tenantName = tenant?.name || 'Berkah Jaya';
   const role = user?.role || 'CASHIER';
+
+  const userInitials = (user?.name || 'U')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+
+  const getRoleLabel = (r: string) => {
+    switch (r) {
+      case 'ADMIN':
+        return t('nav.roles.admin', 'Admin Global');
+      case 'MANAGER':
+        return t('nav.roles.manager', 'Manajer Toko');
+      case 'CASHIER':
+        return t('nav.roles.cashier', 'Kasir');
+      default:
+        return r;
+    }
+  };
+
+  const getRoleBadgeClass = (r: string) => {
+    switch (r) {
+      case 'ADMIN':
+        return 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800/60';
+      case 'MANAGER':
+        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
+      case 'CASHIER':
+      default:
+        return 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800/60';
+    }
+  };
 
   interface MenuItem {
     id: NavTab;
@@ -292,32 +325,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
 
-      {/* Bottom Section: Sync Status & Logout (Fixed at bottom) */}
+      {/* Bottom Section: User Info & Logout (Fixed at bottom) */}
       <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-2 shrink-0 bg-white dark:bg-slate-900 z-10">
-        {/* Multi-Tenant Indicator */}
-        {!isCollapsed && role === 'ADMIN' && (
-          <div className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl text-[11px] text-purple-800 dark:text-purple-300 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-            <span className="font-semibold">{t('nav.multiTenantActive', 'Mode Multi-Tenant Aktif')}</span>
-          </div>
-        )}
-
-        {/* Online Cloud Sync pill */}
+        {/* User Profile Info Card */}
         {!isCollapsed ? (
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs text-slate-600 dark:text-slate-300">
-            <div className="w-2 h-2 rounded-full bg-theme-primary animate-pulse shrink-0"></div>
-            <div className="truncate flex-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{tenantName}</span>
+          <div
+            onClick={() => onSelectTab('profile')}
+            className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer group"
+            title={`${user?.name || 'Pengguna'} (${getRoleLabel(role)}) - ${t('nav.profile', 'Profil Pengguna')}`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-theme-light border border-theme-border text-theme-text font-bold text-xs flex items-center justify-center shrink-0 uppercase shadow-2xs">
+              {userInitials}
+            </div>
+            <div className="truncate flex-1 min-w-0">
+              <div className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate group-hover:text-theme-primary transition-colors">
+                {user?.name || 'Pengguna'}
               </div>
-              <div className="flex items-center justify-between text-[10px] text-theme-primary font-medium">
-                <span>{t('nav.onlineCloudSync', 'Online Cloud Sync')}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold border ${getRoleBadgeClass(
+                    role
+                  )}`}
+                >
+                  {getRoleLabel(role)}
+                </span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex justify-center p-2 text-theme-primary" title={t('nav.onlineCloudSync', 'Online Cloud Sync')}>
-            <div className="w-2.5 h-2.5 rounded-full bg-theme-primary animate-pulse"></div>
+          <div className="flex justify-center">
+            <button
+              onClick={() => onSelectTab('profile')}
+              className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-theme-primary flex items-center justify-center text-xs font-bold text-theme-text dark:text-slate-200 hover:bg-theme-light transition-all cursor-pointer relative"
+              title={`${user?.name || 'Pengguna'} (${getRoleLabel(role)})`}
+            >
+              {userInitials}
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                  role === 'ADMIN'
+                    ? 'bg-purple-500'
+                    : role === 'MANAGER'
+                    ? 'bg-emerald-500'
+                    : 'bg-amber-500'
+                }`}
+              />
+            </button>
           </div>
         )}
 

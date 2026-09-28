@@ -13,14 +13,30 @@ export interface User {
   updatedAt?: string;
 }
 
+export type TenantStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'INACTIVE';
+
+export interface TenantDeactivationRequest {
+  id: string;
+  requestedBy: string;
+  requestedByEmail: string;
+  requestedAt: string;
+  reason: string;
+  notes?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  evaluatedAt?: string;
+  evaluatedBy?: string;
+  rejectionReason?: string;
+}
+
 export interface Tenant {
   id: string;
   name: string;
   slug: string;
   address: string;
   phone: string;
-  status: 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED';
+  status: TenantStatus;
   createdAt: string;
+  deactivationRequest?: TenantDeactivationRequest | null;
   productCount?: number;
   userCount?: number;
   orderCount?: number;
@@ -66,15 +82,10 @@ export interface Order {
   orderNumber: string;
   tenantId: string;
   items: OrderItem[];
-  subtotal: number;
-  discount: number;
   total: number;
   tenderAmount: number;
   changeAmount: number;
   paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  customerName: string;
-  customerNote?: string;
   cashierName: string;
   createdAt: string;
 }

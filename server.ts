@@ -299,9 +299,6 @@ const OrderSchema = z.object({
     qty: z.number().int().positive(),
     subtotal: z.number().positive(),
   })).min(1, 'Keranjang belanja tidak boleh kosong'),
-  customerName: z.string().default('Pelanggan Umum'),
-  customerNote: z.string().optional().default(''),
-  discount: z.number().nonnegative().default(0),
   tenderAmount: z.number().nonnegative(),
   paymentMethod: z.enum(['TUNAI', 'QRIS', 'TRANSFER', 'KASBON']),
 });
@@ -342,6 +339,19 @@ async function authenticateToken(req: any, res: any, next: any) {
     if (decoded.exp) {
       const nowSec = Math.floor(Date.now() / 1000);
       req.tokenRemainingSeconds = Math.max(0, decoded.exp - nowSec);
+    }
+
+    // Verify tenant is still active in MongoDB for tenant-bound roles
+    if (decoded.tenantId && decoded.role !== 'ADMIN') {
+      const tenant = await tenantsCol.findOne({ id: decoded.tenantId });
+      if (tenant && (tenant.status === 'INACTIVE' || tenant.status === 'SUSPENDED')) {
+        return res.status(403).json({
+          success: false,
+          tenantDeactivated: true,
+          code: 'TENANT_DEACTIVATED',
+          message: `Akun tenant "${tenant.name}" telah dinonaktifkan oleh Administrator. Seluruh akses telah ditutup.`,
+        });
+      }
     }
 
     next();
@@ -429,6 +439,15 @@ async function initMongoDB() {
       await seedMongoData();
     } else {
       console.log(`📊 Found ${tenantCount} existing tenants in MongoDB.`);
+      await ordersCol.updateMany({}, {
+        $unset: {
+          subtotal: '',
+          discount: '',
+          paymentStatus: '',
+          customerName: '',
+          customerNote: '',
+        },
+      }).catch(() => {});
       const actCount = await activityLogsCol.countDocuments();
       if (actCount === 0) {
         await seedInitialActivityLogs('tenant-berkah-jaya');
@@ -708,7 +727,7 @@ async function seedMongoData() {
 
   await productsCol.insertMany([...productsToInsert, ...tenant2Products]);
 
-  // Seed sample initial orders matching Image 5
+  // Seed sample initial orders
   const sampleOrders = [
     {
       id: 'order-seed-1',
@@ -720,15 +739,10 @@ async function seedMongoData() {
         { productId: 'prod-berkah-27', name: 'Gula Pasir Gulaku 1kg', price: 18000, qty: 1, subtotal: 18000 },
         { productId: 'prod-berkah-26', name: 'Minyak Sania Pouch 1L', price: 18000, qty: 1, subtotal: 18000 },
       ],
-      subtotal: 134500,
-      discount: 0,
       total: 134500,
       tenderAmount: 150000,
       changeAmount: 15500,
       paymentMethod: 'TUNAI',
-      paymentStatus: 'LUNAS',
-      customerName: 'Bu Siti Rahma',
-      customerNote: 'Pelanggan Tetap',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
     },
@@ -740,15 +754,10 @@ async function seedMongoData() {
         { productId: 'prod-berkah-16', name: 'Minyak Sania 2L', price: 35000, qty: 1, subtotal: 35000 },
         { productId: 'prod-berkah-43', name: 'Indomie Goreng Original', price: 3100, qty: 5, subtotal: 15500 },
       ],
-      subtotal: 50500,
-      discount: 0,
       total: 50500,
       tenderAmount: 50500,
       changeAmount: 0,
       paymentMethod: 'QRIS',
-      paymentStatus: 'LUNAS',
-      customerName: 'Mas Kevin (Kost 14)',
-      customerNote: 'Anak Kost',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
     },
@@ -760,15 +769,10 @@ async function seedMongoData() {
         { productId: 'prod-berkah-57', name: 'Kopi Kapal Api Spesial Mix (10s)', price: 15500, qty: 1, subtotal: 15500 },
         { productId: 'prod-berkah-27', name: 'Gula Pasir Gulaku 1kg', price: 18000, qty: 1, subtotal: 18000 },
       ],
-      subtotal: 33500,
-      discount: 0,
       total: 33500,
-      tenderAmount: 0,
-      changeAmount: 0,
-      paymentMethod: 'KASBON',
-      paymentStatus: 'BELUM_LUNAS',
-      customerName: 'Pak RT Wardi',
-      customerNote: 'Kasbon Pos Ronda',
+      tenderAmount: 50000,
+      changeAmount: 16500,
+      paymentMethod: 'TUNAI',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
     },
@@ -779,15 +783,10 @@ async function seedMongoData() {
       items: [
         { productId: 'prod-berkah-81', name: 'Gas Elpiji 3kg (Tabung Melon Refill)', price: 22000, qty: 1, subtotal: 22000 },
       ],
-      subtotal: 22000,
-      discount: 0,
       total: 22000,
       tenderAmount: 50000,
       changeAmount: 28000,
       paymentMethod: 'TUNAI',
-      paymentStatus: 'LUNAS',
-      customerName: 'Umum (Pelanggan Lepas)',
-      customerNote: 'Walk-in',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 130).toISOString(),
     },
@@ -799,15 +798,10 @@ async function seedMongoData() {
         { productId: 'prod-berkah-69', name: 'Deterjen Rinso Molto Rose Fresh 770g', price: 21500, qty: 2, subtotal: 43000 },
         { productId: 'prod-berkah-71', name: 'Molto Pewangi Pakaian Floral 780ml', price: 14000, qty: 3, subtotal: 42000 },
       ],
-      subtotal: 85000,
-      discount: 0,
       total: 85000,
-      tenderAmount: 0,
+      tenderAmount: 85000,
       changeAmount: 0,
-      paymentMethod: 'KASBON',
-      paymentStatus: 'BELUM_LUNAS',
-      customerName: 'Mbak Dewi (Laundry)',
-      customerNote: 'Bayar Sore Ini',
+      paymentMethod: 'QRIS',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 170).toISOString(),
     },
@@ -819,15 +813,10 @@ async function seedMongoData() {
         { productId: 'prod-berkah-67', name: 'Aqua Galon 19L (Isi Ulang)', price: 21000, qty: 1, subtotal: 21000 },
         { productId: 'prod-berkah-62', name: 'Teh Celup Sosro Kotak 30s', price: 8000, qty: 2, subtotal: 16000 },
       ],
-      subtotal: 37000,
-      discount: 0,
       total: 37000,
       tenderAmount: 50000,
       changeAmount: 13000,
       paymentMethod: 'TUNAI',
-      paymentStatus: 'LUNAS',
-      customerName: 'Pak Budi Bengkel',
-      customerNote: 'Pelanggan Tetap',
       cashierName: 'Bu Siti (Kasir Utama)',
       createdAt: new Date(Date.now() - 1000 * 60 * 220).toISOString(),
     },
@@ -1643,7 +1632,7 @@ async function startServer() {
       // Check tenant status in MongoDB
       if (user.tenantId) {
         const tenant = await tenantsCol.findOne({ id: user.tenantId });
-        if (tenant && tenant.status === 'SUSPENDED') {
+        if (tenant && (tenant.status === 'SUSPENDED' || tenant.status === 'INACTIVE')) {
           await recordLoginHistory({
             userId: user.id,
             userName: user.name,
@@ -1652,13 +1641,16 @@ async function startServer() {
             tenantId: user.tenantId,
             tenantName: user.tenantName,
             status: 'FAILED',
-            failureReason: 'Toko warung sedang dinonaktifkan / ditangguhkan',
+            failureReason: tenant.status === 'INACTIVE'
+              ? 'Akun tenant warung telah dinonaktifkan'
+              : 'Toko warung sedang dinonaktifkan / ditangguhkan',
             ipAddress: clientIp,
             userAgent: clientUa,
           });
           return res.status(403).json({
             success: false,
-            message: 'Toko warung Anda dinonaktifkan sementara oleh Administrator.',
+            tenantDeactivated: true,
+            message: `Akun tenant "${tenant.name}" telah dinonaktifkan oleh Administrator. Seluruh akses login untuk warung ini telah ditutup.`,
           });
         }
       }
@@ -2522,10 +2514,10 @@ async function startServer() {
       }
 
       const tenantId = req.user.tenantId;
-      const { items, customerName, customerNote, discount, tenderAmount, paymentMethod } = parsed.data;
+      const { items, tenderAmount, paymentMethod } = parsed.data;
 
       // Validate stock in MongoDB
-      let computedSubtotal = 0;
+      let computedTotal = 0;
       for (const item of items) {
         const prod = await productsCol.findOne({ id: item.productId, tenantId });
         if (!prod) {
@@ -2537,10 +2529,10 @@ async function startServer() {
             message: `Stok "${prod.name}" tidak mencukupi (Tersisa: ${prod.stock} ${prod.unit}, Diminta: ${item.qty}).`,
           });
         }
-        computedSubtotal += item.price * item.qty;
+        computedTotal += item.price * item.qty;
       }
 
-      const total = Math.max(0, computedSubtotal - discount);
+      const total = computedTotal;
       let changeAmount = 0;
 
       if (paymentMethod === 'TUNAI') {
@@ -2570,15 +2562,10 @@ async function startServer() {
         orderNumber,
         tenantId,
         items,
-        subtotal: computedSubtotal,
-        discount,
         total,
         tenderAmount,
         changeAmount,
         paymentMethod,
-        paymentStatus: paymentMethod === 'KASBON' ? 'BELUM_LUNAS' : 'LUNAS',
-        customerName: customerName || 'Umum (Pelanggan Lepas)',
-        customerNote: customerNote || '',
         cashierName: req.user.name,
         createdAt: new Date().toISOString(),
       };
@@ -2609,17 +2596,11 @@ async function startServer() {
         query.paymentMethod = payment.toUpperCase();
       }
 
-      const status = req.query.status as string;
-      if (status && status !== 'Semua' && status !== 'Semua Status') {
-        query.paymentStatus = status.toUpperCase();
-      }
-
       const q = (req.query.q as string || '').trim();
       if (q) {
         query.$or = [
           { orderNumber: { $regex: q, $options: 'i' } },
-          { customerName: { $regex: q, $options: 'i' } },
-          { customerNote: { $regex: q, $options: 'i' } },
+          { cashierName: { $regex: q, $options: 'i' } },
         ];
       }
 
@@ -2647,15 +2628,9 @@ async function startServer() {
         return res.status(403).json({ success: false, message: 'Akses ditolak.' });
       }
 
-      const { paymentStatus } = req.body;
-      if (paymentStatus) {
-        await ordersCol.updateOne({ id: req.params.id }, { $set: { paymentStatus } });
-        order.paymentStatus = paymentStatus;
-      }
-
       res.json({
         success: true,
-        message: `Status kasbon untuk nota ${order.orderNumber} berhasil diperbarui menjadi ${order.paymentStatus}!`,
+        message: `Transaksi ${order.orderNumber} telah diperbarui!`,
         order,
       });
     } catch (err: any) {
@@ -2682,13 +2657,6 @@ async function startServer() {
           kasTunai += o.total;
         } else if (o.paymentMethod === 'QRIS' || o.paymentMethod === 'TRANSFER') {
           qrisTransfer += o.total;
-        } else if (o.paymentMethod === 'KASBON') {
-          if (o.paymentStatus === 'BELUM_LUNAS') {
-            kasbon += o.total;
-            kasbonPendingCount++;
-          } else {
-            kasTunai += o.total;
-          }
         }
       });
 
@@ -3104,8 +3072,12 @@ async function startServer() {
       }
 
       const { status } = req.body;
-      if (status && ['ACTIVE', 'SUSPENDED'].includes(status)) {
-        await tenantsCol.updateOne({ id: req.params.id }, { $set: { status } });
+      if (status && ['ACTIVE', 'SUSPENDED', 'INACTIVE'].includes(status)) {
+        const updateDoc: any = { status };
+        if (status === 'ACTIVE' && tenant.deactivationRequest?.status === 'APPROVED') {
+          updateDoc.deactivationRequest = null;
+        }
+        await tenantsCol.updateOne({ id: req.params.id }, { $set: updateDoc });
         tenant.status = status;
       }
 
@@ -3114,6 +3086,263 @@ async function startServer() {
         message: `Status tenant "${tenant.name}" berhasil diubah menjadi ${tenant.status}!`,
         tenant,
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 19. Tenant Details for MANAGER (My Tenant Info & Statistics)
+  app.get('/api/tenant/my', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      if (!tenantId) {
+        return res.status(400).json({ success: false, message: 'Tenant ID tidak ditemukan pada sesi pengguna' });
+      }
+
+      const tenant = await tenantsCol.findOne({ id: tenantId });
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: 'Data tenant tidak ditemukan' });
+      }
+
+      const productCount = await productsCol.countDocuments({ tenantId });
+      const userCount = await usersCol.countDocuments({ tenantId });
+      const orderCount = await ordersCol.countDocuments({ tenantId });
+      const orders = await ordersCol.find({ tenantId }).toArray();
+      const totalRevenue = orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+      const staffUsers = await usersCol
+        .find({ tenantId })
+        .project({ passwordHash: 0 })
+        .toArray();
+
+      res.json({
+        success: true,
+        tenant: {
+          ...tenant,
+          productCount,
+          userCount,
+          orderCount,
+          totalRevenue,
+        },
+        users: staffUsers,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 20. Request Tenant Deactivation (MANAGER only)
+  app.post('/api/tenant/deactivation-request', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      if (!tenantId) {
+        return res.status(400).json({ success: false, message: 'Tenant ID tidak ditemukan' });
+      }
+
+      const tenant = await tenantsCol.findOne({ id: tenantId });
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan' });
+      }
+
+      if (tenant.status !== 'ACTIVE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Hanya tenant dengan status Aktif yang dapat mengajukan penonaktifan akun.',
+        });
+      }
+
+      if (tenant.deactivationRequest && tenant.deactivationRequest.status === 'PENDING') {
+        return res.status(400).json({
+          success: false,
+          message: 'Pengajuan penonaktifan akun warung sebelumnya masih menunggu evaluasi oleh Admin.',
+        });
+      }
+
+      const { reason, notes } = req.body;
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Alasan pengajuan penonaktifan akun wajib diisi.',
+        });
+      }
+
+      const deactivationRequest = {
+        id: `deact-${Date.now()}`,
+        requestedBy: req.user.name,
+        requestedByEmail: req.user.email,
+        requestedAt: new Date().toISOString(),
+        reason: reason.trim(),
+        notes: (notes || '').trim(),
+        status: 'PENDING',
+      };
+
+      await tenantsCol.updateOne(
+        { id: tenantId },
+        { $set: { deactivationRequest } }
+      );
+
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'TENANT',
+        action: 'REQUEST_DEACTIVATION',
+        description: `Manajer ${req.user.name} mengajukan permohonan penonaktifan akun tenant "${tenant.name}". Alasan: ${reason.trim()}`,
+        details: { reason: reason.trim(), notes },
+        ipAddress: req.ip || '127.0.0.1',
+      });
+
+      res.json({
+        success: true,
+        message: 'Permohonan penonaktifan akun berhasil diajukan! Menunggu evaluasi dan persetujuan oleh Admin Global.',
+        deactivationRequest,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 21. Cancel Tenant Deactivation Request (MANAGER only, before evaluation)
+  app.post('/api/tenant/deactivation-request/cancel', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      if (!tenantId) {
+        return res.status(400).json({ success: false, message: 'Tenant ID tidak ditemukan' });
+      }
+
+      const tenant = await tenantsCol.findOne({ id: tenantId });
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan' });
+      }
+
+      if (!tenant.deactivationRequest || tenant.deactivationRequest.status !== 'PENDING') {
+        return res.status(400).json({
+          success: false,
+          message: 'Tidak ada pengajuan penonaktifan yang berstatus menunggu evaluasi.',
+        });
+      }
+
+      await tenantsCol.updateOne(
+        { id: tenantId },
+        { $unset: { deactivationRequest: '' } }
+      );
+
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'TENANT',
+        action: 'CANCEL_DEACTIVATION_REQUEST',
+        description: `Manajer ${req.user.name} membatalkan pengajuan penonaktifan akun tenant "${tenant.name}".`,
+        ipAddress: req.ip || '127.0.0.1',
+      });
+
+      res.json({
+        success: true,
+        message: 'Permohonan penonaktifan berhasil dibatalkan. Akun tenant tetap beroperasi aktif dan normal.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 22. Evaluate Tenant Deactivation Request (ADMIN only: APPROVE or REJECT)
+  app.post('/api/tenants/:id/evaluate-deactivation', authenticateToken, requireRole(['ADMIN']), async (req: any, res) => {
+    try {
+      const tenant = await tenantsCol.findOne({ id: req.params.id });
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan' });
+      }
+
+      if (!tenant.deactivationRequest || tenant.deactivationRequest.status !== 'PENDING') {
+        return res.status(400).json({
+          success: false,
+          message: 'Tenant ini tidak memiliki permohonan penonaktifan yang menunggu evaluasi.',
+        });
+      }
+
+      const { decision, rejectionReason } = req.body;
+      if (!['APPROVE', 'REJECT'].includes(decision)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Keputusan evaluasi tidak valid (harus APPROVE atau REJECT).',
+        });
+      }
+
+      if (decision === 'APPROVE') {
+        const updatedRequest = {
+          ...tenant.deactivationRequest,
+          status: 'APPROVED',
+          evaluatedAt: new Date().toISOString(),
+          evaluatedBy: req.user.name,
+        };
+
+        await tenantsCol.updateOne(
+          { id: req.params.id },
+          {
+            $set: {
+              status: 'INACTIVE',
+              deactivationRequest: updatedRequest,
+            },
+          }
+        );
+
+        await recordActivityLog({
+          tenantId: tenant.id,
+          userId: req.user.id,
+          userName: req.user.name,
+          userRole: req.user.role,
+          module: 'TENANT',
+          action: 'APPROVE_DEACTIVATION',
+          description: `Admin ${req.user.name} menyetujui permohonan penonaktifan tenant "${tenant.name}". Akun tenant dinonaktifkan (INACTIVE) dan akses seluruh pengguna ditutup.`,
+          details: { evaluatedAt: updatedRequest.evaluatedAt, evaluatedBy: req.user.name },
+          ipAddress: req.ip || '127.0.0.1',
+        });
+
+        res.json({
+          success: true,
+          message: `Permohonan penonaktifan tenant "${tenant.name}" disetujui. Akun telah dinonaktifkan dan seluruh kasir/manajer tidak dapat login lagi.`,
+          tenantStatus: 'INACTIVE',
+          deactivationRequest: updatedRequest,
+        });
+      } else {
+        const updatedRequest = {
+          ...tenant.deactivationRequest,
+          status: 'REJECTED',
+          evaluatedAt: new Date().toISOString(),
+          evaluatedBy: req.user.name,
+          rejectionReason: (rejectionReason || 'Ditolak berdasarkan pertimbangan Administrator Platform').trim(),
+        };
+
+        await tenantsCol.updateOne(
+          { id: req.params.id },
+          {
+            $set: {
+              deactivationRequest: updatedRequest,
+            },
+          }
+        );
+
+        await recordActivityLog({
+          tenantId: tenant.id,
+          userId: req.user.id,
+          userName: req.user.name,
+          userRole: req.user.role,
+          module: 'TENANT',
+          action: 'REJECT_DEACTIVATION',
+          description: `Admin ${req.user.name} menolak permohonan penonaktifan tenant "${tenant.name}". Catatan: ${updatedRequest.rejectionReason}`,
+          details: { rejectionReason: updatedRequest.rejectionReason },
+          ipAddress: req.ip || '127.0.0.1',
+        });
+
+        res.json({
+          success: true,
+          message: `Permohonan penonaktifan tenant "${tenant.name}" ditolak. Akun tenant tetap beroperasi aktif.`,
+          tenantStatus: tenant.status,
+          deactivationRequest: updatedRequest,
+        });
+      }
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }

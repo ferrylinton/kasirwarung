@@ -4,10 +4,8 @@ import {
   Plus,
   Minus,
   X,
-  CreditCard,
   QrCode,
   Banknote,
-  BookOpen,
   Printer,
   User,
   Trash2,
@@ -18,7 +16,6 @@ import { Product, PaymentMethod } from '../../types';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
-import { CustomerModal } from '../Modals/CustomerModal';
 import { ReceiptModal } from '../Modals/ReceiptModal';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
 
@@ -33,38 +30,28 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
   const { addToast } = useToastStore();
   const {
     items,
-    customerName,
-    customerNote,
-    discount,
     paymentMethod,
     tenderAmount,
-    addItem,
     updateQty,
     removeItem,
     clearCart,
     setPaymentMethod,
     setTenderAmount,
-    setDiscount,
     applyQuickTender,
-    getSubtotal,
     getTotal,
     getChange,
     getItemCount,
   } = useCartStore();
 
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<any>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Keyboard Shortcuts: [F4] Pelanggan, [F8] Uang Pas
+  // Keyboard Shortcuts: [F8] Uang Pas
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F4') {
-        e.preventDefault();
-        setIsCustomerModalOpen(true);
-      } else if (e.key === 'F8') {
+      if (e.key === 'F8') {
         e.preventDefault();
         applyQuickTender('UANG_PAS');
         addToast({
@@ -79,7 +66,6 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [getTotal, applyQuickTender, addToast]);
 
-  const subtotal = getSubtotal();
   const total = getTotal();
   const change = getChange();
   const itemCount = getItemCount();
@@ -119,9 +105,6 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
             qty: it.qty,
             subtotal: it.subtotal,
           })),
-          customerName: customerName || 'Umum (Pelanggan Lepas)',
-          customerNote: customerNote || '',
-          discount,
           tenderAmount: paymentMethod === 'TUNAI' ? tenderAmount : total,
           paymentMethod,
         }),
@@ -183,27 +166,6 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
               </div>
               <div className="text-xs text-slate-500">
                 Kasir: <span className="font-semibold text-slate-700">{user?.name || 'Bu Siti'}</span>
-              </div>
-
-              {/* Customer Selection Card */}
-              <div className="mt-3 p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{customerName}</div>
-                    <div className="text-[11px] text-slate-500 truncate">
-                      {customerNote || 'Warga Sekitar'}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsCustomerModalOpen(true)}
-                  className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors shrink-0 cursor-pointer"
-                >
-                  Ganti Pelanggan [F4]
-                </button>
               </div>
             </div>
 
@@ -270,24 +232,12 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
           {/* Right Column: Calculation & Payment Area */}
           <div className="lg:col-span-5 p-4 sm:p-6 bg-slate-50/70 flex flex-col justify-between space-y-4">
             <div className="space-y-4">
-              {/* Subtotal & Diskon */}
-              <div className="space-y-1.5 text-xs sm:text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal ({itemCount} item)</span>
-                  <span className="font-mono font-medium">Rp {subtotal.toLocaleString('id-ID')}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-600">
-                  <span>Diskon / Promo Warung</span>
-                  <span className="font-mono font-semibold text-emerald-600">
-                    {discount > 0 ? `- Rp ${discount.toLocaleString('id-ID')}` : 'Rp 0'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Big Total Display */}
-              <div className="flex justify-between items-baseline pt-3 border-t border-slate-200/80">
+              {/* Total Display */}
+              <div className="flex justify-between items-baseline pt-1">
                 <div>
-                  <span className="text-xs sm:text-sm font-bold text-slate-600">Total Bayar</span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">
+                    Total Belanja ({itemCount} item)
+                  </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">
                   Rp {total.toLocaleString('id-ID')}
@@ -352,13 +302,11 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
                 <span className="block text-xs font-semibold text-slate-600 mb-2">
                   Metode Pembayaran:
                 </span>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      { id: 'TUNAI', label: 'Tunai', icon: Banknote },
+                      { id: 'TUNAI', label: 'Uang Tunai', icon: Banknote },
                       { id: 'QRIS', label: 'QRIS', icon: QrCode },
-                      { id: 'TRANSFER', label: 'Transfer', icon: CreditCard },
-                      { id: 'KASBON', label: 'Kasbon', icon: BookOpen },
                     ] as const
                   ).map((method) => {
                     const Icon = method.icon;
@@ -410,19 +358,10 @@ export const CashierView: React.FC<CashierViewProps> = ({ products, onRefreshPro
             ⌨️ Shortcut Keyboard:
           </span>
           <span className="px-2 py-0.5 bg-white rounded-md font-mono font-bold text-slate-800 shadow-xs">
-            [F4] Pelanggan
-          </span>
-          <span className="px-2 py-0.5 bg-white rounded-md font-mono font-bold text-slate-800 shadow-xs">
             [F8] Uang Pas
           </span>
         </div>
       </div>
-
-      {/* Customer Selection Modal */}
-      <CustomerModal
-        isOpen={isCustomerModalOpen}
-        onClose={() => setIsCustomerModalOpen(false)}
-      />
 
       {/* Receipt Modal */}
       <ReceiptModal
