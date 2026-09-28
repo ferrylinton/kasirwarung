@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { LanguageSelector } from '../LanguageSelector';
+import { ThemeToggle } from '../Theme/ThemeToggle';
 
 const LoginSchema = z.object({
   email: z.string().email('Format email tidak valid'),
@@ -90,20 +91,21 @@ export const LoginView: React.FC<LoginViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative">
-      {/* Top right language switcher in auth view */}
-      <div className="absolute top-4 right-4 z-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center p-4 relative transition-colors">
+      {/* Top right language switcher and theme toggle in auth view */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeToggle />
         <LanguageSelector variant="auth" />
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-emerald-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-200 mb-3">
+          <div className="w-14 h-14 btn-theme-primary rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-3">
             <ShoppingBag className="w-8 h-8 text-amber-300" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">KasirWarung</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">KasirWarung</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t('auth.loginSubtitle', 'Kelola kasir, penjualan, dan stok sembako dengan mudah dan cepat.')}
           </p>
         </div>
@@ -181,7 +183,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer mt-2"
+            className="w-full py-3 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer mt-2"
           >
             <span>{loading ? t('auth.loggingIn', 'Memproses Masuk...') : t('auth.loginBtn', 'Masuk ke KasirWarung')}</span>
             <ArrowRight className="w-4 h-4" />
@@ -189,22 +191,22 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </form>
 
         {/* Footer switcher */}
-        <div className="mt-6 pt-4 border-t border-slate-100 text-center space-y-2">
-          <p className="text-xs text-slate-600">
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center space-y-2">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             {t('auth.noAccount', 'Belum punya akun warung?')}{' '}
             <button
               onClick={onSwitchToRegister}
-              className="text-emerald-700 font-bold hover:underline"
+              className="text-theme-primary font-bold hover:underline cursor-pointer"
             >
               {t('auth.registerHere', 'Daftar Toko Baru')}
             </button>
           </p>
 
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
             {t('auth.verifySubtitle', 'Punya kode verifikasi email?')}{' '}
             <button
               onClick={() => onSwitchToVerify()}
-              className="text-emerald-600 font-semibold hover:underline"
+              className="text-theme-primary font-semibold hover:underline cursor-pointer"
             >
               {t('auth.verifyBtn', 'Aktivasi Akun di Sini')}
             </button>

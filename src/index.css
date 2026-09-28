@@ -207,6 +207,17 @@ body {
   background-color: var(--theme-hover) !important;
 }
 
+.btn-theme-outline {
+  background-color: var(--theme-light) !important;
+  color: var(--theme-text) !important;
+  border: 1px solid var(--theme-border) !important;
+  transition: all 0.15s ease-in-out;
+}
+.btn-theme-outline:hover {
+  background-color: var(--theme-primary) !important;
+  color: var(--theme-fg) !important;
+}
+
 .text-theme-primary {
   color: var(--theme-primary) !important;
 }
@@ -220,12 +231,98 @@ body {
   color: var(--theme-text) !important;
 }
 
+.text-theme-text {
+  color: var(--theme-text) !important;
+}
+
 .border-theme-primary {
   border-color: var(--theme-primary) !important;
 }
 
+.border-theme-border {
+  border-color: var(--theme-border) !important;
+}
+
 .ring-theme-primary {
   --tw-ring-color: var(--theme-ring) !important;
+}
+
+/* 🌙 Dark Mode Global Surface & Component Normalization */
+.dark {
+  color-scheme: dark;
+}
+
+.dark .bg-white {
+  background-color: var(--bg-surface);
+}
+
+.dark .bg-slate-50 {
+  background-color: var(--bg-surface-subtle);
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b;
+}
+
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-200 {
+  border-color: var(--border-color);
+}
+
+.dark .border-slate-300 {
+  border-color: #334155;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--text-main);
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--text-muted);
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #1e293b;
+  color: var(--text-main);
+  border-color: #334155;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):focus,
+.dark select:focus,
+.dark textarea:focus {
+  background-color: #0f172a;
+  border-color: var(--theme-primary);
+}
+
+.dark table thead th {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark table tbody td {
+  border-color: var(--border-color) !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.5);
 }
 
 @media print {
@@ -374,4 +471,40 @@ body {
   background: var(--bg-surface-subtle);
   border-radius: 0.5rem;
 }
+
+/* Sleek custom scrollbar for Sidebar and scrollable areas */
+.custom-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.custom-sidebar-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.7);
+}
+
+.dark .custom-sidebar-scrollbar {
+  scrollbar-color: rgba(71, 85, 105, 0.5) transparent;
+}
+
+.dark .custom-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.5);
+}
+
+.dark .custom-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.6);
+}
+
 

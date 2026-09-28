@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { LanguageSelector } from '../LanguageSelector';
+import { ThemeToggle } from '../Theme/ThemeToggle';
 
 interface VerifyEmailViewProps {
   initialToken?: string;
@@ -72,21 +73,22 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative">
-      {/* Top right language switcher in auth view */}
-      <div className="absolute top-4 right-4 z-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center p-4 relative transition-colors">
+      {/* Top right language switcher & theme toggle in auth view */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeToggle />
         <LanguageSelector variant="auth" />
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative text-center">
-        <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center shadow-xs mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative text-center">
+        <div className="w-16 h-16 bg-theme-light text-theme-primary rounded-3xl mx-auto flex items-center justify-center shadow-xs mb-4">
           <MailCheck className="w-8 h-8" />
         </div>
 
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+        <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
           {t('auth.verifyTitle', 'Verifikasi Akun Warung')}
         </h1>
-        <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
           {initialEmail
             ? `Email verifikasi telah dikirimkan ke ${initialEmail}. Silakan periksa inbox email Anda atau gunakan token di bawah.`
             : t('auth.verifySubtitle', 'Masukkan kode / token verifikasi yang dikirimkan ke alamat email Anda untuk mengaktifkan akun.')}
@@ -94,7 +96,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
 
         <form onSubmit={handleVerify} className="mt-6 space-y-4 text-left">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {t('auth.verifyTokenLabel', 'Token Verifikasi Akun')}
             </label>
             <div className="relative">
@@ -104,7 +106,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
                 placeholder="verify-174..."
-                className="w-full pl-9 pr-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all"
+                className="w-full pl-9 pr-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-theme-primary focus:outline-hidden transition-all"
               />
             </div>
           </div>
@@ -112,17 +114,17 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full py-3 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <span>{loading ? t('auth.verifying', 'Mengaktifkan...') : t('auth.verifyBtn', 'Aktivasi & Mulai Berjualan')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-slate-100">
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={onBackToLogin}
-            className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
+            className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold cursor-pointer"
           >
             {t('auth.backToLogin', 'Kembali ke Halaman Masuk')}
           </button>

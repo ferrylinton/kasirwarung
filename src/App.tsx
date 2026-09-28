@@ -13,6 +13,7 @@ import { ProductManagementView } from './components/Manager/ProductManagementVie
 import { CategoryManagementView } from './components/Manager/CategoryManagementView';
 import { TenantManagementView } from './components/Admin/TenantManagementView';
 import { UserProfileView } from './components/Profile/UserProfileView';
+import { ConfigurationView } from './components/Settings/ConfigurationView';
 import { ActivityLogView } from './components/Manager/ActivityLogView';
 import { LoginHistoryView } from './components/Auth/LoginHistoryView';
 import { LoginView } from './components/Auth/LoginView';
@@ -241,60 +242,62 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="h-screen h-dvh bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex overflow-hidden font-['Plus_Jakarta_Sans',sans-serif] transition-colors">
       {/* Toast Notifications */}
       <ToastContainer />
 
-      {/* Top Navigation Bar matching images */}
-      <Navbar
-        onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        onNavigateToPOS={() => setCurrentTab('pos')}
-        onNavigateToProfile={() => setCurrentTab('profile')}
-        onSearchChange={(q) => setSearchQuery(q)}
-        searchQuery={searchQuery}
-      />
+      {/* Desktop Sidebar - 100% Screen Height */}
+      <div className="hidden lg:flex flex-col h-full max-h-screen min-h-0 shrink-0 overflow-hidden">
+        <Sidebar
+          currentTab={currentTab}
+          onSelectTab={(tab) => setCurrentTab(tab)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onRequestLogout={() => setShowLogoutConfirm(true)}
+          productCount={products.length}
+        />
+      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Compact Sidebar */}
-        <div className="hidden lg:block shrink-0">
-          <Sidebar
-            currentTab={currentTab}
-            onSelectTab={(tab) => setCurrentTab(tab)}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            onRequestLogout={() => setShowLogoutConfirm(true)}
-            productCount={products.length}
+      {/* Mobile / Tablet Drawer Sidebar */}
+      {isMobileSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            onClick={() => setIsMobileSidebarOpen(false)}
           />
-        </div>
-
-        {/* Mobile / Tablet Drawer Sidebar */}
-        {isMobileSidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 flex">
-            <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
-              onClick={() => setIsMobileSidebarOpen(false)}
+          <div className="relative z-50 w-72 bg-white dark:bg-slate-900 flex flex-col h-full max-h-screen min-h-0 shadow-2xl overflow-hidden">
+            <Sidebar
+              currentTab={currentTab}
+              onSelectTab={(tab) => {
+                setCurrentTab(tab);
+                setIsMobileSidebarOpen(false);
+              }}
+              isCollapsed={false}
+              onToggleCollapse={() => setIsMobileSidebarOpen(false)}
+              onRequestLogout={() => {
+                setIsMobileSidebarOpen(false);
+                setShowLogoutConfirm(true);
+              }}
+              productCount={products.length}
             />
-            <div className="relative z-50 w-72 bg-white flex flex-col h-full shadow-2xl">
-              <Sidebar
-                currentTab={currentTab}
-                onSelectTab={(tab) => {
-                  setCurrentTab(tab);
-                  setIsMobileSidebarOpen(false);
-                }}
-                isCollapsed={false}
-                onToggleCollapse={() => setIsMobileSidebarOpen(false)}
-                onRequestLogout={() => {
-                  setIsMobileSidebarOpen(false);
-                  setShowLogoutConfirm(true);
-                }}
-                productCount={products.length}
-              />
-            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Main Content Area: Header Navbar on top & Scrollable main content viewport */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Top Navigation Bar */}
+        <Navbar
+          onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          onNavigateToPOS={() => setCurrentTab('pos')}
+          onNavigateToProfile={() => setCurrentTab('profile')}
+          onNavigateToConfiguration={() => setCurrentTab('configuration')}
+          onSearchChange={(q) => setSearchQuery(q)}
+          searchQuery={searchQuery}
+        />
 
         {/* Main Content Viewport */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-h-0">
           {currentTab === 'catalog' && (
             <ProductCatalogView
               products={products}
@@ -345,6 +348,13 @@ export default function App() {
           {currentTab === 'login-history' && <LoginHistoryView />}
 
           {currentTab === 'tenants' && <TenantManagementView />}
+
+          {currentTab === 'configuration' && (
+            <ConfigurationView
+              onRequestLogout={() => setShowLogoutConfirm(true)}
+              onNavigateToPOS={() => setCurrentTab('pos')}
+            />
+          )}
 
           {currentTab === 'profile' && <UserProfileView />}
         </main>

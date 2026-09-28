@@ -28,7 +28,7 @@ export const ThemeToggle: React.FC = () => {
   const activeColorConfig = ACCENT_COLORS.find((c) => c.id === accent) || ACCENT_COLORS[7];
 
   return (
-    <div className="relative inline-flex items-center gap-1.5" ref={popoverRef}>
+    <div className="relative inline-flex items-center gap-1" ref={popoverRef}>
       {/* 1. Quick Dark / Light Toggle Button */}
       <button
         type="button"
@@ -55,14 +55,14 @@ export const ThemeToggle: React.FC = () => {
         <Palette className="w-4 h-4" />
         {/* Dynamic color indicator dot */}
         <span
-          className="absolute bottom-1.5 right-1.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-900"
+          className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 shadow-xs"
           style={{ backgroundColor: activeColorConfig.hex }}
         />
       </button>
 
       {/* 3. Popover Theme Customizer */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 top-full mt-2 w-72 sm:w-84 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-theme-primary" />
@@ -77,7 +77,7 @@ export const ThemeToggle: React.FC = () => {
                 color: activeColorConfig.text,
               }}
             >
-              {isEn ? activeColorConfig.name : activeColorConfig.nameId}
+              {isEn ? activeColorConfig.name : activeColorConfig.nameId} ({activeColorConfig.hex})
             </span>
           </div>
 
@@ -127,7 +127,7 @@ export const ThemeToggle: React.FC = () => {
               <span className="text-[10px] text-slate-400 font-mono">10 Warna</span>
             </div>
 
-            <div className="grid grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-5 gap-2">
               {ACCENT_COLORS.map((item) => {
                 const isSelected = accent === item.id;
                 return (
@@ -137,7 +137,7 @@ export const ThemeToggle: React.FC = () => {
                     onClick={() => {
                       setAccent(item.id as AccentColor);
                     }}
-                    className={`group relative flex flex-col items-center justify-center p-2 rounded-xl transition cursor-pointer border ${
+                    className={`group relative flex flex-col items-center justify-center p-1.5 rounded-xl transition cursor-pointer border ${
                       isSelected
                         ? 'border-slate-400 dark:border-slate-500 bg-slate-50 dark:bg-slate-800 shadow-xs'
                         : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60'
@@ -155,7 +155,7 @@ export const ThemeToggle: React.FC = () => {
                         />
                       )}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 mt-1 truncate max-w-full">
+                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 mt-1 truncate max-w-full text-center">
                       {isEn ? item.name : item.nameId}
                     </span>
                   </button>
@@ -168,4 +168,196 @@ export const ThemeToggle: React.FC = () => {
     </div>
   );
 };
+
+export const ThemeCustomizerPanel: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const { accent, isDark, setAccent, toggleDark } = useThemeStore();
+  const isEn = i18n.language && i18n.language.startsWith('en');
+  const activeColorConfig = ACCENT_COLORS.find((c) => c.id === accent) || ACCENT_COLORS[7];
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Mode Tampilan (Dark vs Light) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
+          {t('theme.mode', 'Mode Tampilan')}
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Pilih antara mode terang untuk pencahayaan optimal atau mode gelap untuk kenyamanan mata di malam hari.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Light Mode Card */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isDark) toggleDark();
+            }}
+            className={`p-4 rounded-xl border text-left flex items-start gap-3.5 transition cursor-pointer ${
+              !isDark
+                ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20'
+                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <Sun className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  {t('theme.light', 'Mode Terang (Light)')}
+                </span>
+                {!isDark && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-600 text-white rounded-full">
+                    {t('theme.activeBadge', 'Aktif')}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {t('theme.lightDesc', 'Tampilan bersih dengan kontras tinggi di siang hari')}
+              </p>
+            </div>
+          </button>
+
+          {/* Dark Mode Card */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!isDark) toggleDark();
+            }}
+            className={`p-4 rounded-xl border text-left flex items-start gap-3.5 transition cursor-pointer ${
+              isDark
+                ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/20'
+                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-slate-800 text-sky-400 flex items-center justify-center shrink-0">
+              <Moon className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  {t('theme.dark', 'Mode Gelap (Dark)')}
+                </span>
+                {isDark && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-full">
+                    {t('theme.activeBadge', 'Aktif')}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {t('theme.darkDesc', 'Tampilan nyaman yang mereduksi ketegangan mata di malam hari')}
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. 10 Accent Theme Colors */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            {t('theme.accentColor', '10 Pilihan Warna Aksen Tema')}
+          </h3>
+          <span
+            className="text-xs font-bold px-2.5 py-1 rounded-full font-mono shadow-xs"
+            style={{
+              backgroundColor: activeColorConfig.hex,
+              color: activeColorConfig.fg,
+            }}
+          >
+            {isEn ? activeColorConfig.name : activeColorConfig.nameId} ({activeColorConfig.hex})
+          </span>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Warna aksen akan diterapkan secara langsung ke tombol, menu aktif, badge pesanan, ikon, dan aksen visual lainnya di seluruh aplikasi.
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {ACCENT_COLORS.map((item) => {
+            const isSelected = accent === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setAccent(item.id as AccentColor)}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer group ${
+                  isSelected
+                    ? 'ring-2 ring-offset-2 ring-slate-800 dark:ring-offset-slate-900 border-slate-400 dark:border-slate-600 shadow-md'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center shadow-xs transition-transform group-hover:scale-110"
+                    style={{ backgroundColor: item.hex }}
+                  >
+                    {isSelected && (
+                      <Check
+                        className="w-4 h-4 stroke-[3]"
+                        style={{ color: item.fg }}
+                      />
+                    )}
+                  </div>
+                  {isSelected && (
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                      ✓ Aktif
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    {isEn ? item.name : item.nameId}
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-400 font-medium">
+                    {item.hex}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Live Preview Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
+          Pratinjau Langsung Tema ({isEn ? activeColorConfig.name : activeColorConfig.nameId})
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Berikut adalah contoh elemen antarmuka yang langsung terpengaruh oleh warna aksen terpilih:
+        </p>
+
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-4">
+          {/* Row of buttons and badges */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="btn-theme-primary px-4 py-2 rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+            >
+              Tombol Utama (Primary)
+            </button>
+
+            <button
+              type="button"
+              className="btn-theme-outline px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              Tombol Sekunder (Outline)
+            </button>
+
+            <span className="bg-theme-light px-3 py-1 rounded-full text-xs font-bold border border-theme-border">
+              Badge Status
+            </span>
+
+            <span className="text-theme-primary font-mono font-bold text-sm">
+              Rp 125.000 (Harga/Nominal)
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default ThemeToggle;

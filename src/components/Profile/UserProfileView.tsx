@@ -18,10 +18,12 @@ import {
   ShieldAlert,
   Save,
   Check,
+  Palette,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
+import { ThemeCustomizerPanel } from '../Theme/ThemeToggle';
 
 // Client-side Zod validation schemas
 const ChangePasswordFormSchema = z
@@ -53,7 +55,7 @@ export const UserProfileView: React.FC = () => {
   const { addToast } = useToastStore();
 
   // Active view tab inside profile
-  const [activeTab, setActiveTab] = useState<'password' | 'info'>('password');
+  const [activeTab, setActiveTab] = useState<'password' | 'info' | 'theme'>('password');
 
   // Change Password State
   const [passwordData, setPasswordData] = useState<PasswordFormData>({
@@ -293,14 +295,14 @@ export const UserProfileView: React.FC = () => {
         </div>
 
         {/* Tab Switcher Buttons */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl w-full md:w-auto">
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl w-full md:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('password')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'password'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
@@ -309,14 +311,26 @@ export const UserProfileView: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('info')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'info'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <UserIcon className="w-3.5 h-3.5" />
             <span>{t('profile.personalInfoTab', 'Informasi Akun')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('theme')}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'theme'
+                ? 'btn-theme-primary shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>{t('theme.title', 'Tema & Tampilan')}</span>
           </button>
         </div>
       </div>
@@ -705,6 +719,11 @@ export const UserProfileView: React.FC = () => {
                 </div>
               </form>
             </div>
+          )}
+
+          {/* TAB 3: TEMA & TAMPILAN (10 Accent Theme Colors & Dark Mode) */}
+          {activeTab === 'theme' && (
+            <ThemeCustomizerPanel />
           )}
         </div>
 
