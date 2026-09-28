@@ -90,7 +90,115 @@ let usersCol: any = new MemoryCollection('users');
 let productsCol: any = new MemoryCollection('products');
 let ordersCol: any = new MemoryCollection('orders');
 let tokensCol: any = new MemoryCollection('tokens');
+let activityLogsCol: any = new MemoryCollection('activity_logs');
+let loginHistoryCol: any = new MemoryCollection('login_history');
 let isMongoLive = false;
+
+// Helper: Record activity log for Manager & Admin auditing
+async function recordActivityLog(params: {
+  tenantId: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER';
+  action: string;
+  description: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  createdAt?: string;
+}) {
+  try {
+    const id = `act-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const logDoc = {
+      id,
+      tenantId: params.tenantId,
+      userId: params.userId,
+      userName: params.userName,
+      userRole: params.userRole,
+      module: params.module,
+      action: params.action,
+      description: params.description,
+      details: params.details || {},
+      ipAddress: params.ipAddress || '127.0.0.1',
+      createdAt: params.createdAt || new Date().toISOString(),
+    };
+    await activityLogsCol.insertOne(logDoc);
+    return logDoc;
+  } catch (err: any) {
+    console.error('Failed to record activity log:', err.message);
+  }
+}
+
+// Helper: Parse client User-Agent into human-readable device, browser, and OS
+function parseUserAgent(ua?: string) {
+  if (!ua) {
+    return { device: 'Desktop', os: 'Windows 11', browser: 'Chrome 122' };
+  }
+  const uaLower = ua.toLowerCase();
+  let os = 'Windows';
+  if (uaLower.includes('macintosh') || uaLower.includes('mac os')) os = 'macOS';
+  else if (uaLower.includes('iphone')) os = 'iOS (iPhone)';
+  else if (uaLower.includes('ipad')) os = 'iPadOS';
+  else if (uaLower.includes('android')) os = 'Android';
+  else if (uaLower.includes('linux')) os = 'Linux';
+
+  let browser = 'Chrome';
+  if (uaLower.includes('edg/')) browser = 'Microsoft Edge';
+  else if (uaLower.includes('firefox')) browser = 'Firefox';
+  else if (uaLower.includes('safari') && !uaLower.includes('chrome')) browser = 'Safari';
+  else if (uaLower.includes('opr/') || uaLower.includes('opera')) browser = 'Opera';
+
+  let device = 'Desktop';
+  if (uaLower.includes('mobile') || uaLower.includes('iphone') || (uaLower.includes('android') && !uaLower.includes('tablet'))) {
+    device = 'Smartphone';
+  } else if (uaLower.includes('tablet') || uaLower.includes('ipad')) {
+    device = 'Tablet';
+  }
+
+  return { device, os, browser };
+}
+
+// Helper: Record login history for all users, managers, and admins
+async function recordLoginHistory(params: {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  status: 'SUCCESS' | 'FAILED';
+  failureReason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt?: string;
+}) {
+  try {
+    const uaParsed = parseUserAgent(params.userAgent);
+    const id = `login-hist-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const logDoc = {
+      id,
+      userId: params.userId,
+      userName: params.userName,
+      userEmail: params.userEmail,
+      userRole: params.userRole,
+      tenantId: params.tenantId || null,
+      tenantName: params.tenantName || null,
+      status: params.status,
+      failureReason: params.failureReason || null,
+      ipAddress: params.ipAddress || '127.0.0.1',
+      userAgent: params.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      device: uaParsed.device,
+      os: uaParsed.os,
+      browser: uaParsed.browser,
+      createdAt: params.createdAt || new Date().toISOString(),
+    };
+    await loginHistoryCol.insertOne(logDoc);
+    return logDoc;
+  } catch (err: any) {
+    console.error('Failed to record login history:', err.message);
+  }
+}
+
 
 // Redis Client
 let redisClient: Redis | null = null;
@@ -149,6 +257,26 @@ const RegisterSchema = z.object({
 const LoginSchema = z.object({
   email: z.string().email('Format email tidak valid'),
   password: z.string().min(1, 'Kata sandi wajib diisi'),
+});
+
+const ChangePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Kata sandi saat ini wajib diisi'),
+    newPassword: z.string().min(6, 'Kata sandi baru minimal 6 karakter'),
+    confirmPassword: z.string().min(6, 'Konfirmasi kata sandi baru minimal 6 karakter'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Konfirmasi kata sandi baru tidak cocok dengan kata sandi baru',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'Kata sandi baru tidak boleh sama dengan kata sandi saat ini',
+    path: ['newPassword'],
+  });
+
+const UpdateProfileSchema = z.object({
+  name: z.string().min(2, 'Nama pengguna minimal 2 karakter'),
+  phone: z.string().optional().default(''),
 });
 
 const ProductSchema = z.object({
@@ -251,6 +379,15 @@ async function initMongoDB() {
     if (count === 0) {
       await seedMongoData();
       console.log('✅ Seeded KasirWarung initial dataset into MongoDB-compatible engine.');
+    } else {
+      const actCount = await activityLogsCol.countDocuments();
+      if (actCount === 0) {
+        await seedInitialActivityLogs('tenant-berkah-jaya');
+      }
+      const logHistCount = await loginHistoryCol.countDocuments();
+      if (logHistCount === 0) {
+        await seedInitialLoginHistory();
+      }
     }
     return;
   }
@@ -267,6 +404,8 @@ async function initMongoDB() {
     productsCol = db.collection('products');
     ordersCol = db.collection('orders');
     tokensCol = db.collection('tokens');
+    activityLogsCol = db.collection('activity_logs');
+    loginHistoryCol = db.collection('login_history');
 
     // Create Indexes
     await tenantsCol.createIndex({ slug: 1 }, { unique: true }).catch(() => {});
@@ -274,6 +413,11 @@ async function initMongoDB() {
     await productsCol.createIndex({ tenantId: 1, sku: 1 }, { unique: true }).catch(() => {});
     await productsCol.createIndex({ tenantId: 1, category: 1 }).catch(() => {});
     await ordersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
+    await activityLogsCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
+    await activityLogsCol.createIndex({ tenantId: 1, module: 1 }).catch(() => {});
+    await loginHistoryCol.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
+    await loginHistoryCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
+    await loginHistoryCol.createIndex({ createdAt: -1 }).catch(() => {});
 
     isMongoLive = true;
     console.log('✅ Connected to MongoDB successfully!');
@@ -285,6 +429,14 @@ async function initMongoDB() {
       await seedMongoData();
     } else {
       console.log(`📊 Found ${tenantCount} existing tenants in MongoDB.`);
+      const actCount = await activityLogsCol.countDocuments();
+      if (actCount === 0) {
+        await seedInitialActivityLogs('tenant-berkah-jaya');
+      }
+      const logHistCount = await loginHistoryCol.countDocuments();
+      if (logHistCount === 0) {
+        await seedInitialLoginHistory();
+      }
     }
   } catch (err: any) {
     console.warn('⚠️ MongoDB connection warning:', err.message);
@@ -294,6 +446,15 @@ async function initMongoDB() {
     if (count === 0) {
       await seedMongoData();
       console.log('✅ Seeded KasirWarung initial dataset into MongoDB-compatible engine.');
+    } else {
+      const actCount = await activityLogsCol.countDocuments();
+      if (actCount === 0) {
+        await seedInitialActivityLogs('tenant-berkah-jaya');
+      }
+      const logHistCount = await loginHistoryCol.countDocuments();
+      if (logHistCount === 0) {
+        await seedInitialLoginHistory();
+      }
     }
   }
 }
@@ -673,7 +834,419 @@ async function seedMongoData() {
   ];
 
   await ordersCol.insertMany(sampleOrders);
-  console.log(`✅ Seeded ${productsToInsert.length} products and initial orders to MongoDB Atlas.`);
+  await seedInitialActivityLogs(tenant1.id);
+  await seedInitialLoginHistory();
+  console.log(`✅ Seeded ${productsToInsert.length} products, initial orders, activity logs, and login history to MongoDB.`);
+}
+
+async function seedInitialActivityLogs(tenantId: string = 'tenant-berkah-jaya') {
+  const initialLogs = [
+    {
+      id: 'act-seed-1',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'PRODUCT',
+      action: 'CREATE_PRODUCT',
+      description: 'Menambahkan produk baru "Beras Setra Ramos Cap Bunga 5kg" (SKU: BRS-SR05, Kategori: Beras & Gandum, Stok: 20 karung, Rp 69.500)',
+      details: { name: 'Beras Setra Ramos Cap Bunga 5kg', sku: 'BRS-SR05', category: 'Beras & Gandum', stock: 20, price: 69500 },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
+    },
+    {
+      id: 'act-seed-2',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CATEGORY',
+      action: 'CREATE_CATEGORY',
+      description: 'Membuat kategori produk baru "Beras & Gandum"',
+      details: { categoryName: 'Beras & Gandum' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3 + 1000 * 60 * 5).toISOString(),
+    },
+    {
+      id: 'act-seed-3',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CATEGORY',
+      action: 'CREATE_CATEGORY',
+      description: 'Membuat kategori produk baru "Minyak & Margarin"',
+      details: { categoryName: 'Minyak & Margarin' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+    },
+    {
+      id: 'act-seed-4',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CASHIER',
+      action: 'CREATE_CASHIER',
+      description: 'Mendaftarkan staf kasir baru "Bu Siti (Kasir Utama)" (kasir@berkahjaya.com)',
+      details: { name: 'Bu Siti (Kasir Utama)', email: 'kasir@berkahjaya.com' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2 + 1000 * 60 * 30).toISOString(),
+    },
+    {
+      id: 'act-seed-5',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'PRODUCT',
+      action: 'CREATE_PRODUCT',
+      description: 'Menambahkan produk baru "Minyak Sania Pouch 2L" (SKU: MNK-SN02, Kategori: Minyak & Margarin, Stok: 18 pouch, Rp 35.000)',
+      details: { name: 'Minyak Sania Pouch 2L', sku: 'MNK-SN02', category: 'Minyak & Margarin', stock: 18, price: 35000 },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
+    },
+    {
+      id: 'act-seed-6',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CATEGORY',
+      action: 'CREATE_CATEGORY',
+      description: 'Membuat kategori produk baru "Perlengkapan Warung"',
+      details: { categoryName: 'Perlengkapan Warung' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
+    },
+    {
+      id: 'act-seed-7',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'PRODUCT',
+      action: 'CREATE_PRODUCT',
+      description: 'Menambahkan produk baru "Gas Elpiji 3kg (Tabung Melon Refill)" (SKU: GAS-3KG01, Kategori: Perlengkapan Warung, Stok: 16 tabung, Rp 22.000)',
+      details: { name: 'Gas Elpiji 3kg (Tabung Melon Refill)', sku: 'GAS-3KG01', category: 'Perlengkapan Warung', stock: 16, price: 22000 },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    },
+    {
+      id: 'act-seed-8',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'PRODUCT',
+      action: 'UPDATE_PRODUCT',
+      description: 'Memperbarui stok produk "Sunlight Jeruk Nipis 700ml Pouch" (SKU: SBN-SL70, Stok: 4 bks, Rp 14.500)',
+      details: { name: 'Sunlight Jeruk Nipis 700ml Pouch', sku: 'SBN-SL70', stock: 4, price: 14500 },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
+    },
+    {
+      id: 'act-seed-9',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CATEGORY',
+      action: 'UPDATE_CATEGORY',
+      description: 'Mengubah nama kategori "Minuman Dingin & Kopi" menjadi "Minuman & Kopi"',
+      details: { oldCategory: 'Minuman Dingin & Kopi', newCategory: 'Minuman & Kopi' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    },
+    {
+      id: 'act-seed-10',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'PRODUCT',
+      action: 'UPDATE_PRODUCT',
+      description: 'Memperbarui harga jual "Indomie Goreng Original" (Harga: Rp 3.100, Stok: 120 bks)',
+      details: { name: 'Indomie Goreng Original', price: 3100, stock: 120 },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    },
+    {
+      id: 'act-seed-11',
+      tenantId,
+      userId: 'user-manager-berkah',
+      userName: 'Pak Hendra (Manager)',
+      userRole: 'MANAGER',
+      module: 'CASHIER',
+      action: 'CREATE_CASHIER',
+      description: 'Mendaftarkan staf kasir baru "Rian Kurniawan (Kasir Siang)" (rian@berkahjaya.com)',
+      details: { name: 'Rian Kurniawan (Kasir Siang)', email: 'rian@berkahjaya.com' },
+      ipAddress: '192.168.1.10',
+      createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+    },
+  ];
+  await activityLogsCol.insertMany(initialLogs);
+  console.log(`✅ Seeded ${initialLogs.length} initial activity logs.`);
+}
+
+async function seedInitialLoginHistory() {
+  const initialLoginRecords = [
+    // 1. Super Admin (Recent login)
+    {
+      id: 'loghist-seed-1',
+      userId: 'user-admin-1',
+      userName: 'Super Admin KasirWarung',
+      userEmail: 'admin@kasirwarung.com',
+      userRole: 'ADMIN',
+      tenantId: null,
+      tenantName: 'Global System',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '114.124.12.89',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
+    },
+    // 2. Manager Berkah Jaya (Desktop)
+    {
+      id: 'loghist-seed-2',
+      userId: 'user-manager-1',
+      userName: 'Bu Siti Rahma',
+      userEmail: 'manager@berkahjaya.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.10',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+    },
+    // 3. Cashier Berkah Jaya (POS Tablet)
+    {
+      id: 'loghist-seed-3',
+      userId: 'user-cashier-1',
+      userName: 'Bu Siti (Kasir Utama)',
+      userEmail: 'kasir@berkahjaya.com',
+      userRole: 'CASHIER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.45',
+      userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X200 Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      device: 'Tablet',
+      os: 'Android',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(), // 1.5 hours ago
+    },
+    // 4. Manager Madura 24 Jam (macOS)
+    {
+      id: 'loghist-seed-4',
+      userId: 'user-manager-2',
+      userName: 'Cak Holil (Owner)',
+      userEmail: 'cak.holil@madura24.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-madura-24jam',
+      tenantName: 'Warung Madura 24 Jam',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '182.253.11.78',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
+      device: 'Desktop',
+      os: 'macOS',
+      browser: 'Safari',
+      createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+    },
+    // 5. Manager Berkah Jaya (Smartphone Android)
+    {
+      id: 'loghist-seed-5',
+      userId: 'user-manager-1',
+      userName: 'Bu Siti Rahma',
+      userEmail: 'manager@berkahjaya.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '114.125.45.22',
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S918B Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+      device: 'Smartphone',
+      os: 'Android',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(), // 5 hours ago
+    },
+    // 6. Failed attempt - Wrong password by cashier
+    {
+      id: 'loghist-seed-6',
+      userId: 'user-cashier-1',
+      userName: 'Bu Siti (Kasir Utama)',
+      userEmail: 'kasir@berkahjaya.com',
+      userRole: 'CASHIER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'FAILED',
+      failureReason: 'Kata sandi tidak sesuai',
+      ipAddress: '192.168.1.45',
+      userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X200 Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      device: 'Tablet',
+      os: 'Android',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(), // 10 hours ago
+    },
+    // 7. Cashier successful re-login after typo
+    {
+      id: 'loghist-seed-7',
+      userId: 'user-cashier-1',
+      userName: 'Bu Siti (Kasir Utama)',
+      userEmail: 'kasir@berkahjaya.com',
+      userRole: 'CASHIER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.45',
+      userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X200 Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      device: 'Tablet',
+      os: 'Android',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 9.8).toISOString(), // 9.8 hours ago
+    },
+    // 8. Super Admin login yesterday
+    {
+      id: 'loghist-seed-8',
+      userId: 'user-admin-1',
+      userName: 'Super Admin KasirWarung',
+      userEmail: 'admin@kasirwarung.com',
+      userRole: 'ADMIN',
+      tenantId: null,
+      tenantName: 'Global System',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '114.124.12.89',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    },
+    // 9. Manager Berkah Jaya login yesterday
+    {
+      id: 'loghist-seed-9',
+      userId: 'user-manager-1',
+      userName: 'Bu Siti Rahma',
+      userEmail: 'manager@berkahjaya.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.10',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // 26 hours ago
+    },
+    // 10. Manager Madura 24 Jam login 2 days ago
+    {
+      id: 'loghist-seed-10',
+      userId: 'user-manager-2',
+      userName: 'Cak Holil (Owner)',
+      userEmail: 'cak.holil@madura24.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-madura-24jam',
+      tenantName: 'Warung Madura 24 Jam',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '182.253.11.78',
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      device: 'Smartphone',
+      os: 'iOS (iPhone)',
+      browser: 'Safari',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
+    },
+    // 11. Failed suspicious login from unknown IP/email
+    {
+      id: 'loghist-seed-11',
+      userId: 'unregistered',
+      userName: 'Percobaan Tidak Dikenal',
+      userEmail: 'unknown.scanner@threat-alert.org',
+      userRole: 'UNKNOWN',
+      tenantId: null,
+      tenantName: null,
+      status: 'FAILED',
+      failureReason: 'Akun email tidak terdaftar di sistem',
+      ipAddress: '45.142.214.10',
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
+      device: 'Desktop',
+      os: 'Linux',
+      browser: 'Firefox',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 52).toISOString(), // 2.2 days ago
+    },
+    // 12. Cashier login 3 days ago
+    {
+      id: 'loghist-seed-12',
+      userId: 'user-cashier-1',
+      userName: 'Bu Siti (Kasir Utama)',
+      userEmail: 'kasir@berkahjaya.com',
+      userRole: 'CASHIER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.45',
+      userAgent: 'Mozilla/5.0 (Linux; Android 13; SM-X200 Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      device: 'Tablet',
+      os: 'Android',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
+    },
+    // 13. Manager Berkah Jaya login 4 days ago
+    {
+      id: 'loghist-seed-13',
+      userId: 'user-manager-1',
+      userName: 'Bu Siti Rahma',
+      userEmail: 'manager@berkahjaya.com',
+      userRole: 'MANAGER',
+      tenantId: 'tenant-berkah-jaya',
+      tenantName: 'Berkah Jaya',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '192.168.1.10',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(), // 4 days ago
+    },
+    // 14. Super Admin login 5 days ago
+    {
+      id: 'loghist-seed-14',
+      userId: 'user-admin-1',
+      userName: 'Super Admin KasirWarung',
+      userEmail: 'admin@kasirwarung.com',
+      userRole: 'ADMIN',
+      tenantId: null,
+      tenantName: 'Global System',
+      status: 'SUCCESS',
+      failureReason: null,
+      ipAddress: '114.124.12.89',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      device: 'Desktop',
+      os: 'Windows',
+      browser: 'Chrome',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(), // 5 days ago
+    },
+  ];
+
+  await loginHistoryCol.insertMany(initialLoginRecords);
+  console.log(`✅ Seeded ${initialLoginRecords.length} initial login history records.`);
 }
 
 async function startServer() {
@@ -1031,14 +1604,39 @@ async function startServer() {
       }
 
       const { email, password } = parsed.data;
+      const clientIp = (req.headers['x-forwarded-for'] as string) || req.ip || '127.0.0.1';
+      const clientUa = (req.headers['user-agent'] as string) || '';
+
       const user = await usersCol.findOne({ email: email.toLowerCase() });
 
       if (!user) {
+        await recordLoginHistory({
+          userId: 'unregistered',
+          userName: 'Percobaan Tidak Dikenal',
+          userEmail: email.toLowerCase(),
+          userRole: 'UNKNOWN',
+          status: 'FAILED',
+          failureReason: 'Akun email tidak terdaftar di sistem',
+          ipAddress: clientIp,
+          userAgent: clientUa,
+        });
         return res.status(401).json({ success: false, message: 'Email atau kata sandi salah' });
       }
 
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (!isMatch) {
+        await recordLoginHistory({
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          tenantId: user.tenantId,
+          tenantName: user.tenantName,
+          status: 'FAILED',
+          failureReason: 'Kata sandi tidak sesuai',
+          ipAddress: clientIp,
+          userAgent: clientUa,
+        });
         return res.status(401).json({ success: false, message: 'Email atau kata sandi salah' });
       }
 
@@ -1046,12 +1644,37 @@ async function startServer() {
       if (user.tenantId) {
         const tenant = await tenantsCol.findOne({ id: user.tenantId });
         if (tenant && tenant.status === 'SUSPENDED') {
+          await recordLoginHistory({
+            userId: user.id,
+            userName: user.name,
+            userEmail: user.email,
+            userRole: user.role,
+            tenantId: user.tenantId,
+            tenantName: user.tenantName,
+            status: 'FAILED',
+            failureReason: 'Toko warung sedang dinonaktifkan / ditangguhkan',
+            ipAddress: clientIp,
+            userAgent: clientUa,
+          });
           return res.status(403).json({
             success: false,
             message: 'Toko warung Anda dinonaktifkan sementara oleh Administrator.',
           });
         }
       }
+
+      // Record successful login history
+      await recordLoginHistory({
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
+        status: 'SUCCESS',
+        ipAddress: clientIp,
+        userAgent: clientUa,
+      });
 
       // Generate access & refresh token pair with unique JTI claims
       const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
@@ -1330,6 +1953,153 @@ async function startServer() {
     }
   });
 
+  // 4b. Auth: Change Password (Validated with Zod)
+  app.post('/api/auth/change-password', authenticateToken, async (req: any, res) => {
+    try {
+      const parsed = ChangePasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          message: parsed.error.issues[0]?.message || (req.t ? req.t('common.validationError') : 'Data kata sandi tidak valid'),
+          errors: parsed.error.issues,
+        });
+      }
+
+      const { currentPassword, newPassword } = parsed.data;
+      const user = await usersCol.findOne({ id: req.user.id });
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: req.t ? req.t('common.notFound') : 'Pengguna tidak ditemukan',
+        });
+      }
+
+      // Check current password with bcrypt
+      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_CURRENT_PASSWORD',
+          message: req.t ? req.t('auth.currentPasswordWrong') : 'Kata sandi saat ini tidak sesuai. Silakan periksa kembali.',
+        });
+      }
+
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+      await usersCol.updateOne(
+        { id: req.user.id },
+        {
+          $set: {
+            passwordHash: newPasswordHash,
+            passwordUpdatedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        }
+      );
+
+      // Update Redis status if tracking
+      await tokenStore.setLoggedUserStatus(
+        user.id,
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+          lastActive: new Date().toISOString(),
+          passwordUpdatedAt: new Date().toISOString(),
+          status: 'LOGGED_IN',
+        },
+        req.tokenRemainingSeconds || ACCESS_TOKEN_TTL_SEC
+      );
+
+      return res.json({
+        success: true,
+        message: req.t ? req.t('auth.passwordChanged') : 'Kata sandi Anda berhasil diperbarui!',
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Gagal mengubah kata sandi',
+      });
+    }
+  });
+
+  // 4c. Auth: Update Profile Details (Validated with Zod)
+  app.put('/api/auth/profile', authenticateToken, async (req: any, res) => {
+    try {
+      const parsed = UpdateProfileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          message: parsed.error.issues[0]?.message || (req.t ? req.t('common.validationError') : 'Data profil tidak valid'),
+          errors: parsed.error.issues,
+        });
+      }
+
+      const { name, phone } = parsed.data;
+      const user = await usersCol.findOne({ id: req.user.id });
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: req.t ? req.t('common.notFound') : 'Pengguna tidak ditemukan',
+        });
+      }
+
+      await usersCol.updateOne(
+        { id: req.user.id },
+        {
+          $set: {
+            name,
+            phone: phone || '',
+            updatedAt: new Date().toISOString(),
+          },
+        }
+      );
+
+      const updatedUser = await usersCol.findOne({ id: req.user.id });
+      const tenant = user.tenantId ? await tenantsCol.findOne({ id: user.tenantId }) : null;
+
+      // Update name in session
+      await tokenStore.setLoggedUserStatus(
+        user.id,
+        {
+          userId: user.id,
+          email: user.email,
+          name,
+          role: user.role,
+          tenantId: user.tenantId,
+          lastActive: new Date().toISOString(),
+          status: 'LOGGED_IN',
+        },
+        req.tokenRemainingSeconds || ACCESS_TOKEN_TTL_SEC
+      );
+
+      return res.json({
+        success: true,
+        message: req.t ? req.t('auth.profileUpdated') : 'Data profil berhasil diperbarui.',
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          tenantId: updatedUser.tenantId,
+          tenantName: tenant ? tenant.name : updatedUser.tenantName,
+          isVerified: updatedUser.isVerified,
+          phone: updatedUser.phone || '',
+          createdAt: updatedUser.createdAt,
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Gagal memperbarui profil',
+      });
+    }
+  });
+
   // 5. Products: List from MongoDB (Scoped by Tenant)
   app.get('/api/products', authenticateToken, async (req: any, res) => {
     try {
@@ -1432,6 +2202,18 @@ async function startServer() {
 
       await productsCol.insertOne(newProduct);
 
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'PRODUCT',
+        action: 'CREATE_PRODUCT',
+        description: `Menambahkan produk baru "${name}" (SKU: ${sku.toUpperCase()}, Kategori: ${category}, Stok: ${stock} ${unit}, Rp ${price.toLocaleString('id-ID')})`,
+        details: { productId: newProduct.id, name, sku: sku.toUpperCase(), category, price, costPrice, stock, unit },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.status(201).json({
         success: true,
         message: `Produk "${name}" berhasil disimpan di MongoDB!`,
@@ -1494,6 +2276,18 @@ async function startServer() {
 
       await productsCol.updateOne({ id: req.params.id }, { $set: updateData });
 
+      await recordActivityLog({
+        tenantId: req.user.tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'PRODUCT',
+        action: 'UPDATE_PRODUCT',
+        description: `Memperbarui data produk "${name}" (SKU: ${sku.toUpperCase()}, Kategori: ${category}, Stok: ${stock} ${unit}, Rp ${price.toLocaleString('id-ID')})`,
+        details: { productId: req.params.id, name, sku: sku.toUpperCase(), category, price, costPrice, stock, unit, oldData: { name: product.name, price: product.price, stock: product.stock, category: product.category } },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.json({
         success: true,
         message: `Data produk "${name}" berhasil diperbarui di MongoDB!`,
@@ -1531,6 +2325,19 @@ async function startServer() {
       }
 
       await productsCol.deleteOne({ id: req.params.id });
+
+      await recordActivityLog({
+        tenantId: product.tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'PRODUCT',
+        action: 'DELETE_PRODUCT',
+        description: `Menghapus produk "${product.name}" (SKU: ${product.sku}, Kategori: ${product.category})`,
+        details: { productId: product.id, name: product.name, sku: product.sku, category: product.category, price: product.price },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.json({ success: true, message: `Produk "${product.name}" berhasil dihapus dari MongoDB.` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -1591,6 +2398,18 @@ async function startServer() {
         return res.status(400).json({ success: false, message: `Kategori "${name}" sudah ada dalam sistem warung Anda.` });
       }
 
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CATEGORY',
+        action: 'CREATE_CATEGORY',
+        description: `Membuat kategori produk baru "${name}"`,
+        details: { categoryName: name },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.status(201).json({
         success: true,
         message: `Kategori "${name}" siap digunakan untuk produk sembako!`,
@@ -1627,6 +2446,19 @@ async function startServer() {
         { tenantId, category: oldCategory },
         { $set: { category: newCategory } }
       );
+
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CATEGORY',
+        action: 'UPDATE_CATEGORY',
+        description: `Mengubah nama kategori "${oldCategory}" menjadi "${newCategory}"`,
+        details: { oldCategory, newCategory },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.json({ success: true, message: `Kategori "${oldCategory}" berhasil diubah menjadi "${newCategory}".` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -1659,6 +2491,18 @@ async function startServer() {
           message: `Kategori "${categoryName}" tidak dapat dihapus karena masih digunakan oleh ${count} produk. Silakan ubah kategori produk terlebih dahulu.`,
         });
       }
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CATEGORY',
+        action: 'DELETE_CATEGORY',
+        description: `Menghapus kategori produk "${categoryName}"`,
+        details: { categoryName },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.json({ success: true, message: `Kategori "${categoryName}" berhasil dihapus.` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -1925,6 +2769,18 @@ async function startServer() {
 
       await usersCol.insertOne(newCashier);
 
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CASHIER',
+        action: 'CREATE_CASHIER',
+        description: `Mendaftarkan staf kasir baru "${name}" (${email.toLowerCase()})`,
+        details: { cashierId: newCashier.id, name, email: email.toLowerCase() },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.status(201).json({
         success: true,
         message: `Akun kasir "${name}" berhasil disimpan di MongoDB!`,
@@ -1956,6 +2812,230 @@ async function startServer() {
   });
 
   // 16. Cashier Management: Delete Cashier from MongoDB
+      // (above)
+
+  // 16b. Activity Logs: List, Search, Date Range Filter & Pagination (MANAGER & ADMIN only)
+  app.get('/api/activity-logs', authenticateToken, requireRole(['MANAGER', 'ADMIN']), async (req: any, res) => {
+    try {
+      const tenantId = req.query.tenantId || req.user.tenantId;
+      if (!tenantId && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Tenant ID diperlukan' });
+      }
+
+      const query: any = {};
+      if (req.user.role !== 'ADMIN' || tenantId) {
+        query.tenantId = tenantId;
+      }
+
+      // Filter by module (PRODUCT, CATEGORY, CASHIER)
+      const moduleParam = (req.query.module as string || '').trim().toUpperCase();
+      if (moduleParam && moduleParam !== 'ALL' && moduleParam !== 'SEMUA') {
+        query.module = moduleParam;
+      }
+
+      // Filter by action
+      const actionParam = (req.query.action as string || '').trim();
+      if (actionParam && actionParam !== 'ALL' && actionParam !== 'SEMUA') {
+        query.action = actionParam;
+      }
+
+      // Keyword search
+      const q = (req.query.q as string || '').trim();
+      if (q) {
+        query.$or = [
+          { description: { $regex: q, $options: 'i' } },
+          { userName: { $regex: q, $options: 'i' } },
+          { action: { $regex: q, $options: 'i' } },
+        ];
+      }
+
+      // Date range filtering (react-date-picker passes startDate and/or endDate in ISO or YYYY-MM-DD format)
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      if (startDate || endDate) {
+        const dateCondition: any = {};
+        if (startDate) {
+          const s = new Date(startDate);
+          if (!isNaN(s.getTime())) {
+            s.setHours(0, 0, 0, 0);
+            dateCondition.$gte = s.toISOString();
+          }
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          if (!isNaN(e.getTime())) {
+            e.setHours(23, 59, 59, 999);
+            dateCondition.$lte = e.toISOString();
+          }
+        }
+        if (Object.keys(dateCondition).length > 0) {
+          query.createdAt = dateCondition;
+        }
+      }
+
+      // Pagination
+      const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+      const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string || '10', 10)));
+      const skip = (page - 1) * limit;
+
+      const total = await activityLogsCol.countDocuments(query);
+      const logs = await activityLogsCol
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      res.json({
+        success: true,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        logs,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data log aktivitas: ' + err.message });
+    }
+  });
+
+  // 16c. Login History: Multi-Role Audit (All Users = Own, Manager = Tenant, Admin = Global)
+  app.get('/api/login-history', authenticateToken, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), async (req: any, res) => {
+    try {
+      const userRole = req.user.role;
+      const currentUserId = req.user.id;
+      const currentTenantId = req.user.tenantId;
+
+      const query: any = {};
+
+      // 1. Role-based scoping
+      const scope = (req.query.scope as string || '').toUpperCase();
+      const onlyMe = req.query.onlyMe === 'true' || scope === 'ME';
+
+      if (userRole === 'CASHIER' || onlyMe) {
+        // Cashiers can strictly and only view their own login history
+        // Manager or Admin in "My History" mode also view their own
+        query.userId = currentUserId;
+      } else if (userRole === 'MANAGER') {
+        // Managers view all login history for their tenant
+        if (!currentTenantId) {
+          return res.status(403).json({ success: false, message: 'Tenant ID manajer tidak valid' });
+        }
+        query.tenantId = currentTenantId;
+
+        // Optional filter by specific staff user inside tenant
+        if (req.query.userId) {
+          query.userId = req.query.userId;
+        }
+      } else if (userRole === 'ADMIN') {
+        // Admin views all logins across all tenants
+        // Admin can optionally filter by specific tenant
+        if (req.query.tenantId && req.query.tenantId !== 'ALL') {
+          query.tenantId = req.query.tenantId;
+        }
+        // Admin can optionally filter by specific user
+        if (req.query.userId) {
+          query.userId = req.query.userId;
+        }
+      }
+
+      // 2. Filter by status (SUCCESS / FAILED / ALL)
+      const statusParam = (req.query.status as string || '').trim().toUpperCase();
+      if (statusParam && statusParam !== 'ALL' && ['SUCCESS', 'FAILED'].includes(statusParam)) {
+        query.status = statusParam;
+      }
+
+      // 3. Filter by role (for Manager and Admin)
+      const roleParam = (req.query.role as string || '').trim().toUpperCase();
+      if (roleParam && roleParam !== 'ALL' && ['ADMIN', 'MANAGER', 'CASHIER'].includes(roleParam)) {
+        query.userRole = roleParam;
+      }
+
+      // 4. Keyword search
+      const q = (req.query.q as string || '').trim();
+      if (q) {
+        query.$or = [
+          { userName: { $regex: q, $options: 'i' } },
+          { userEmail: { $regex: q, $options: 'i' } },
+          { ipAddress: { $regex: q, $options: 'i' } },
+          { device: { $regex: q, $options: 'i' } },
+          { browser: { $regex: q, $options: 'i' } },
+          { os: { $regex: q, $options: 'i' } },
+          { tenantName: { $regex: q, $options: 'i' } },
+          { failureReason: { $regex: q, $options: 'i' } },
+        ];
+      }
+
+      // 5. Date range filtering (react-date-picker passes startDate and/or endDate in ISO or YYYY-MM-DD format)
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      if (startDate || endDate) {
+        const dateCondition: any = {};
+        if (startDate) {
+          const s = new Date(startDate);
+          if (!isNaN(s.getTime())) {
+            s.setHours(0, 0, 0, 0);
+            dateCondition.$gte = s.toISOString();
+          }
+        }
+        if (endDate) {
+          const e = new Date(endDate);
+          if (!isNaN(e.getTime())) {
+            e.setHours(23, 59, 59, 999);
+            dateCondition.$lte = e.toISOString();
+          }
+        }
+        if (Object.keys(dateCondition).length > 0) {
+          query.createdAt = dateCondition;
+        }
+      }
+
+      // 6. Pagination
+      const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+      const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string || '10', 10)));
+      const skip = (page - 1) * limit;
+
+      const total = await loginHistoryCol.countDocuments(query);
+      const history = await loginHistoryCol
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      // Compute statistics based on the current base scope
+      const baseScopeQuery: any = {};
+      if (userRole === 'CASHIER' || onlyMe) {
+        baseScopeQuery.userId = currentUserId;
+      } else if (userRole === 'MANAGER') {
+        baseScopeQuery.tenantId = currentTenantId;
+      } else if (userRole === 'ADMIN' && req.query.tenantId && req.query.tenantId !== 'ALL') {
+        baseScopeQuery.tenantId = req.query.tenantId;
+      }
+
+      const allScopedLogs = await loginHistoryCol.find(baseScopeQuery).toArray();
+      const successCount = allScopedLogs.filter((l: any) => l.status === 'SUCCESS').length;
+      const failedCount = allScopedLogs.filter((l: any) => l.status === 'FAILED').length;
+      const uniqueUsers = new Set(allScopedLogs.map((l: any) => l.userId)).size;
+
+      res.json({
+        success: true,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        stats: {
+          total: allScopedLogs.length,
+          successCount,
+          failedCount,
+          uniqueUsers,
+        },
+        history,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil data histori login: ' + err.message });
+    }
+  });
   app.delete('/api/users/cashiers/:id', authenticateToken, requireRole(['MANAGER']), async (req: any, res) => {
     try {
       const user = await usersCol.findOne({ id: req.params.id });
@@ -1968,6 +3048,19 @@ async function startServer() {
       }
 
       await usersCol.deleteOne({ id: req.params.id });
+
+      await recordActivityLog({
+        tenantId: user.tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CASHIER',
+        action: 'DELETE_CASHIER',
+        description: `Menghapus akun staf kasir "${user.name}" (${user.email})`,
+        details: { cashierId: user.id, name: user.name, email: user.email },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
       res.json({ success: true, message: `Akun kasir "${user.name}" berhasil dihapus dari MongoDB.` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });

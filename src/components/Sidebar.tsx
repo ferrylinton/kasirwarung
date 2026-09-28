@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   Boxes,
   FolderTree,
+  User,
+  ClipboardList,
+  KeyRound,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
@@ -28,7 +31,10 @@ export type NavTab =
   | 'history'
   | 'dashboard'
   | 'cashiers'
-  | 'tenants';
+  | 'activity-log'
+  | 'login-history'
+  | 'tenants'
+  | 'profile';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -53,66 +59,134 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const tenantName = tenant?.name || 'Berkah Jaya';
   const role = user?.role || 'CASHIER';
 
-  const menuItems = [
+  interface MenuItem {
+    id: NavTab;
+    label: string;
+    icon: React.ElementType;
+    badge?: string;
+    hasDot?: boolean;
+    roles: string[];
+  }
+
+  interface MenuGroup {
+    id: string;
+    title: string;
+    items: MenuItem[];
+  }
+
+  const menuGroups: MenuGroup[] = [
     {
-      id: 'catalog' as NavTab,
-      label: t('nav.catalog', 'Katalog Produk'),
-      icon: Package,
-      badge: `${productCount || 104}+`,
-      roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+      id: 'transactions',
+      title: t('nav.groups.transactions', 'Transaksi & Kasir'),
+      items: [
+        {
+          id: 'pos' as NavTab,
+          label: t('nav.pos', 'Kasir / Transaksi'),
+          icon: Calculator,
+          hasDot: true,
+          roles: ['MANAGER', 'CASHIER'],
+        },
+        {
+          id: 'history' as NavTab,
+          label: t('nav.history', 'Riwayat Penjualan'),
+          icon: Receipt,
+          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+        },
+      ],
     },
     {
-      id: 'product-management' as NavTab,
-      label: t('nav.productManagement', 'Manajemen Produk'),
-      icon: Boxes,
-      roles: ['MANAGER'],
+      id: 'inventory',
+      title: t('nav.groups.inventory', 'Katalog & Produk'),
+      items: [
+        {
+          id: 'catalog' as NavTab,
+          label: t('nav.catalog', 'Katalog Produk'),
+          icon: Package,
+          badge: `${productCount || 104}+`,
+          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+        },
+        {
+          id: 'product-management' as NavTab,
+          label: t('nav.productManagement', 'Manajemen Produk'),
+          icon: Boxes,
+          roles: ['MANAGER'],
+        },
+        {
+          id: 'category-management' as NavTab,
+          label: t('nav.categoryManagement', 'Manajemen Kategori'),
+          icon: FolderTree,
+          roles: ['MANAGER'],
+        },
+        {
+          id: 'categories' as NavTab,
+          label: t('nav.categories', 'Kategori & Stok'),
+          icon: Layers,
+          roles: ['ADMIN', 'CASHIER'],
+        },
+      ],
     },
     {
-      id: 'category-management' as NavTab,
-      label: t('nav.categoryManagement', 'Manajemen Kategori'),
-      icon: FolderTree,
-      roles: ['MANAGER'],
+      id: 'management',
+      title: t('nav.groups.management', 'Manajemen & Analisis'),
+      items: [
+        {
+          id: 'dashboard' as NavTab,
+          label: t('nav.dashboard', 'Dashboard Statistik'),
+          icon: BarChart3,
+          roles: ['ADMIN', 'MANAGER'],
+        },
+        {
+          id: 'cashiers' as NavTab,
+          label: t('nav.cashiers', 'Kelola Staf Kasir'),
+          icon: Users2,
+          roles: ['MANAGER'],
+        },
+        {
+          id: 'tenants' as NavTab,
+          label: t('nav.tenants', 'Manajemen Tenant'),
+          icon: Building2,
+          roles: ['ADMIN'],
+        },
+      ],
     },
     {
-      id: 'categories' as NavTab,
-      label: t('nav.categories', 'Kategori & Stok'),
-      icon: Layers,
-      roles: ['ADMIN', 'CASHIER'],
+      id: 'audit',
+      title: t('nav.groups.audit', 'Audit & Keamanan'),
+      items: [
+        {
+          id: 'activity-log' as NavTab,
+          label: t('nav.activityLog', 'Log Aktivitas'),
+          icon: ClipboardList,
+          roles: ['MANAGER'],
+        },
+        {
+          id: 'login-history' as NavTab,
+          label: t('nav.loginHistory', 'Histori Login'),
+          icon: KeyRound,
+          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+        },
+      ],
     },
     {
-      id: 'pos' as NavTab,
-      label: t('nav.pos', 'Kasir / Transaksi'),
-      icon: Calculator,
-      hasDot: true,
-      roles: ['MANAGER', 'CASHIER'],
-    },
-    {
-      id: 'history' as NavTab,
-      label: t('nav.history', 'Riwayat Penjualan'),
-      icon: Receipt,
-      roles: ['ADMIN', 'MANAGER', 'CASHIER'],
-    },
-    {
-      id: 'dashboard' as NavTab,
-      label: t('nav.dashboard', 'Dashboard Statistik'),
-      icon: BarChart3,
-      roles: ['ADMIN', 'MANAGER'],
-    },
-    {
-      id: 'cashiers' as NavTab,
-      label: t('nav.cashiers', 'Kelola Staf Kasir'),
-      icon: Users2,
-      roles: ['MANAGER'],
-    },
-    {
-      id: 'tenants' as NavTab,
-      label: t('nav.tenants', 'Manajemen Tenant'),
-      icon: Building2,
-      roles: ['ADMIN'],
+      id: 'account',
+      title: t('nav.groups.account', 'Akun & Profil'),
+      items: [
+        {
+          id: 'profile' as NavTab,
+          label: t('nav.profile', 'Profil Pengguna'),
+          icon: User,
+          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+        },
+      ],
     },
   ];
 
-  const visibleItems = menuItems.filter((item) => item.roles.includes(role));
+  const visibleGroups = menuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.roles.includes(role)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <aside
@@ -120,9 +194,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
-      {/* Top Brand Section */}
-      <div>
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
+      {/* Top Brand & Menu Section */}
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
           {!isCollapsed && (
             <div className="flex items-center gap-2.5 overflow-hidden">
               {/* Basket logo with green leaf icon */}
@@ -148,61 +222,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <button
             onClick={onToggleCollapse}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors hidden md:block"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors hidden md:block cursor-pointer"
             title={isCollapsed ? t('nav.expandMenu', 'Perluas Menu') : t('nav.collapseMenu', 'Perkecil Menu')}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
-        {/* Menu Section */}
-        <div className="p-3 space-y-1">
-          {!isCollapsed && (
-            <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              {t('nav.mainMenu', 'Menu Utama')}
-            </div>
-          )}
-
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
-                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-                title={item.label}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+        {/* Menu Section with Groups */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3.5">
+          {visibleGroups.map((group, groupIdx) => (
+            <div key={group.id} className="space-y-1">
+              {!isCollapsed ? (
+                <div className="px-3 pt-1 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {group.title}
                 </div>
+              ) : (
+                groupIdx > 0 && <div className="border-t border-slate-100 my-2" />
+              )}
 
-                {!isCollapsed && item.badge && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                      isActive ? 'bg-emerald-700/80 text-white' : 'bg-slate-100 text-slate-600'
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onSelectTab(item.id)}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                     }`}
+                    title={item.label}
                   >
-                    {item.badge}
-                  </span>
-                )}
+                    <div className="flex items-center gap-3 truncate">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                      {!isCollapsed && <span className="truncate">{item.label}</span>}
+                    </div>
 
-                {item.hasDot && (
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isActive ? 'bg-amber-300' : 'bg-amber-500'
-                    }`}
-                  />
-                )}
-              </button>
-            );
-          })}
+                    {!isCollapsed && item.badge && (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                          isActive ? 'bg-emerald-700/80 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+
+                    {item.hasDot && (
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isActive ? 'bg-amber-300' : 'bg-amber-500'
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 

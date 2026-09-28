@@ -8,6 +8,7 @@ import { LanguageSelector } from './LanguageSelector';
 interface NavbarProps {
   onToggleSidebar: () => void;
   onNavigateToPOS: () => void;
+  onNavigateToProfile?: () => void;
   onSearchChange: (query: string) => void;
   searchQuery: string;
 }
@@ -15,6 +16,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   onNavigateToPOS,
+  onNavigateToProfile,
   onSearchChange,
   searchQuery,
 }) => {
@@ -122,8 +124,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         {/* User Profile Lockup */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 overflow-hidden">
+        <button
+          type="button"
+          onClick={onNavigateToProfile}
+          className="flex items-center gap-2.5 pl-2 border-l border-slate-200 hover:opacity-85 transition-opacity cursor-pointer text-left"
+          title={t('nav.profile', 'Profil Pengguna')}
+        >
+          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 overflow-hidden ring-2 ring-emerald-500/20">
             {user?.name ? user.name.slice(0, 2).toUpperCase() : <UserIcon className="w-4 h-4" />}
           </div>
           <div className="hidden lg:block text-left">
@@ -134,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {getRoleBadge(user?.role)}
             </div>
           </div>
-        </div>
+        </button>
       </div>
     </header>
   );

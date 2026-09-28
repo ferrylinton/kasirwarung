@@ -23,6 +23,7 @@ interface AuthStore {
   refreshMe: () => Promise<void>;
   refreshTokenIfExpiring: () => Promise<void>;
   setIdleTimeoutMinutes: (minutes: number) => void;
+  updateUser: (updatedUser: Partial<User>) => void;
 }
 
 const LOCAL_STORAGE_TOKEN_KEY = 'kasirwarung_jwt_token';
@@ -67,6 +68,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   setIdleTimeoutMinutes: (minutes: number) => {
     if (minutes > 0) {
       set({ idleTimeoutMinutes: minutes });
+    }
+  },
+
+  updateUser: (updatedUser: Partial<User>) => {
+    const current = get().user;
+    if (current) {
+      set({ user: { ...current, ...updatedUser } });
     }
   },
 

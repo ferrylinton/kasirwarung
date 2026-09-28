@@ -12,6 +12,9 @@ import { CashierManagementView } from './components/Manager/CashierManagementVie
 import { ProductManagementView } from './components/Manager/ProductManagementView';
 import { CategoryManagementView } from './components/Manager/CategoryManagementView';
 import { TenantManagementView } from './components/Admin/TenantManagementView';
+import { UserProfileView } from './components/Profile/UserProfileView';
+import { ActivityLogView } from './components/Manager/ActivityLogView';
+import { LoginHistoryView } from './components/Auth/LoginHistoryView';
 import { LoginView } from './components/Auth/LoginView';
 import { RegisterView } from './components/Auth/RegisterView';
 import { VerifyEmailView } from './components/Auth/VerifyEmailView';
@@ -246,6 +249,7 @@ export default function App() {
       <Navbar
         onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         onNavigateToPOS={() => setCurrentTab('pos')}
+        onNavigateToProfile={() => setCurrentTab('profile')}
         onSearchChange={(q) => setSearchQuery(q)}
         searchQuery={searchQuery}
       />
@@ -336,7 +340,13 @@ export default function App() {
 
           {currentTab === 'cashiers' && <CashierManagementView />}
 
+          {currentTab === 'activity-log' && <ActivityLogView />}
+
+          {currentTab === 'login-history' && <LoginHistoryView />}
+
           {currentTab === 'tenants' && <TenantManagementView />}
+
+          {currentTab === 'profile' && <UserProfileView />}
         </main>
       </div>
 

@@ -38,6 +38,9 @@ const idBackend = {
     verificationCodeInvalid: 'Kode verifikasi tidak valid atau tidak ditemukan.',
     verificationCodeExpired: 'Kode verifikasi telah kedaluwarsa. Silakan minta kode verifikasi baru.',
     emailAlreadyRegistered: 'Email sudah terdaftar dalam sistem.',
+    passwordChanged: 'Kata sandi Anda berhasil diperbarui!',
+    currentPasswordWrong: 'Kata sandi saat ini tidak sesuai.',
+    profileUpdated: 'Data profil berhasil diperbarui.',
   },
   products: {
     created: 'Produk sembako berhasil ditambahkan ke katalog.',
@@ -92,6 +95,9 @@ const enBackend = {
     verificationCodeInvalid: 'Invalid or missing verification code.',
     verificationCodeExpired: 'Verification code has expired. Please request a new verification code.',
     emailAlreadyRegistered: 'Email is already registered in the system.',
+    passwordChanged: 'Your password has been successfully updated!',
+    currentPasswordWrong: 'Current password does not match.',
+    profileUpdated: 'Profile data updated successfully.',
   },
   products: {
     created: 'Grocery product successfully added to catalog.',

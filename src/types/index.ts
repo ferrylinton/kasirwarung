@@ -8,6 +8,9 @@ export interface User {
   tenantId: string | null;
   tenantName: string | null;
   isVerified: boolean;
+  phone?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Tenant {
@@ -100,3 +103,72 @@ export interface ToastMessage {
   message: string;
   duration?: number;
 }
+
+export type ActivityModule = 'PRODUCT' | 'CATEGORY' | 'CASHIER';
+
+export type ActivityAction =
+  | 'CREATE_PRODUCT'
+  | 'UPDATE_PRODUCT'
+  | 'DELETE_PRODUCT'
+  | 'CREATE_CATEGORY'
+  | 'UPDATE_CATEGORY'
+  | 'DELETE_CATEGORY'
+  | 'CREATE_CASHIER'
+  | 'DELETE_CASHIER';
+
+export interface ActivityLog {
+  id: string;
+  tenantId: string;
+  userId: string;
+  userName: string;
+  userRole: Role;
+  module: ActivityModule;
+  action: ActivityAction;
+  description: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface ActivityLogResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+  logs: ActivityLog[];
+}
+
+export interface LoginHistoryItem {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: Role;
+  tenantId: string | null;
+  tenantName: string | null;
+  status: 'SUCCESS' | 'FAILED';
+  failureReason?: string;
+  ipAddress: string;
+  userAgent?: string;
+  device: string;
+  browser: string;
+  os: string;
+  createdAt: string;
+}
+
+export interface LoginHistoryResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  stats?: {
+    total: number;
+    successCount: number;
+    failedCount: number;
+    uniqueUsers: number;
+  };
+  history: LoginHistoryItem[];
+}
+
