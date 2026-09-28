@@ -14,7 +14,13 @@ import { MemoryCollection } from './server/mongoMemoryFallback.js';
 import { i18nMiddleware, initBackendI18n, i18next } from './server/i18n.js';
 import { tokenStore } from './server/tokenStore.js';
 import crypto from 'crypto';
+import dns from "node:dns/promises";
 
+try {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
+} catch (e) {
+  // Ignore DNS configuration errors in restricted containers
+}
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -100,7 +106,7 @@ async function recordActivityLog(params: {
   userId: string;
   userName: string;
   userRole: string;
-  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER';
+  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT';
   action: string;
   description: string;
   details?: Record<string, any>;

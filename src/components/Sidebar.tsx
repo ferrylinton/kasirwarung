@@ -177,6 +177,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           roles: ['MANAGER'],
         },
         {
+          id: 'tenant-info' as NavTab,
+          label: t('nav.tenantInfo', 'Tenant Info'),
+          icon: Building2,
+          roles: ['MANAGER'],
+        },
+        {
           id: 'tenants' as NavTab,
           label: t('nav.tenants', 'Manajemen Tenant'),
           icon: Building2,

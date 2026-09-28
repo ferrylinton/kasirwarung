@@ -22,6 +22,7 @@ import { VerifyEmailView } from './components/Auth/VerifyEmailView';
 import { ToastContainer } from './components/ToastContainer';
 import { ConfirmationModal } from './components/Modals/ConfirmationModal';
 import { Product } from './types';
+import { TenantInfoView } from './components/Manager/TenantInfoView';
 
 export default function App() {
   const { t } = useTranslation();
@@ -348,6 +349,8 @@ export default function App() {
           {currentTab === 'login-history' && <LoginHistoryView />}
 
           {currentTab === 'tenants' && <TenantManagementView />}
+
+          {currentTab === 'tenant-info' && <TenantInfoView />}
 
           {currentTab === 'configuration' && (
             <ConfigurationView
