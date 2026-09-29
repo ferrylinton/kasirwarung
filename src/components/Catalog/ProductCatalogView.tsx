@@ -49,8 +49,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { user, tenant, token } = useAuthStore();
-  const { addItem } = useCartStore();
+  const { addItem, getItemCount, getTotal } = useCartStore();
   const { addToast } = useToastStore();
+
+  const cartItemCount = getItemCount();
+  const cartTotal = getTotal();
 
   const isManager = user?.role === 'MANAGER';
 
@@ -244,7 +247,40 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 relative">
+      {/* Floating View Cart Button on Top Right Side */}
+      <div className="fixed top-4 sm:top-5 right-4 sm:right-6 md:right-8 z-40">
+        <button
+          onClick={onNavigateToPOS}
+          className="group flex items-center gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border border-emerald-600/40"
+          title={t('pos.viewCart', 'Buka Keranjang / Kasir')}
+        >
+          <div className="relative">
+            <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-white transition-transform group-hover:scale-110" />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-2 -right-2.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold font-mono bg-amber-400 text-slate-950 rounded-full shadow-xs">
+                {cartItemCount}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="text-xs font-bold leading-tight flex items-center gap-1.5">
+              <span>{t('nav.orders', 'Keranjang')}</span>
+              {cartItemCount > 0 && (
+                <span className="text-[11px] font-normal text-emerald-200">
+                  ({cartItemCount})
+                </span>
+              )}
+            </span>
+            {cartTotal > 0 && (
+              <span className="text-[10px] sm:text-[11px] font-mono font-semibold text-emerald-100 leading-tight">
+                Rp {cartTotal.toLocaleString('id-ID')}
+              </span>
+            )}
+          </div>
+        </button>
+      </div>
+
       {/* Admin Notice Banner */}
       {user?.role === 'ADMIN' && (
         <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-3 text-amber-900 shadow-xs">
@@ -266,9 +302,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             {t('catalog.title', 'Katalog & Etalase Produk')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-            {t('catalog.subtitle', 'Kelola ratusan varian sembako, harga modal, harga jual, dan stok realtime.')}
-          </p>
         </div>
       </div>
 

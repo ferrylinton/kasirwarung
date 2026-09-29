@@ -162,9 +162,6 @@ export const TenantManagementView: React.FC = () => {
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">
           Manajemen Tenant & Warung Multi-Tenant
         </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Kelola seluruh warung kelontong terdaftar, evaluasi permohonan penonaktifan dari manajer toko, dan atur status operasional akun.
-        </p>
       </div>
 
       {/* Pending Deactivation Requests Section (Evaluated by ADMIN) */}

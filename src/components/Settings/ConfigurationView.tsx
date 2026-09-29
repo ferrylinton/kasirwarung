@@ -90,12 +90,6 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({
           <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
             {t('configuration.title', 'Konfigurasi Sistem & Tampilan')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            {t(
-              'configuration.subtitle',
-              'Atur preferensi bahasa operasional dan tema warna aplikasi untuk semua pengguna. Pengaturan ini tetap tersimpan secara permanen meskipun Anda logout dari akun.'
-            )}
-          </p>
         </div>
 
         {/* Action Controls: Reset & Logout Test */}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Menu } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
-import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { CartView } from './components/POS/CartView';
 import { ProductCatalogView } from './components/Catalog/ProductCatalogView';
@@ -12,6 +12,7 @@ import { CashierManagementView } from './components/Manager/CashierManagementVie
 import { ProductManagementView } from './components/Manager/ProductManagementView';
 import { CategoryManagementView } from './components/Manager/CategoryManagementView';
 import { TenantManagementView } from './components/Admin/TenantManagementView';
+import { AdminDashboardView } from './components/Admin/AdminDashboardView';
 import { UserProfileView } from './components/Profile/UserProfileView';
 import { ConfigurationView } from './components/Settings/ConfigurationView';
 import { ActivityLogView } from './components/Manager/ActivityLogView';
@@ -29,11 +30,27 @@ export default function App() {
   const { user, token, logout, refreshMe, refreshTokenIfExpiring, idleTimeoutMinutes, setIdleTimeoutMinutes } = useAuthStore();
   const { addToast } = useToastStore();
 
-  // Navigation & UI state
-  const [currentTab, setCurrentTab] = useState<NavTab>('catalog');
+  // Navigation & UI state - ADMIN defaults to admin-dashboard
+  const [currentTab, setCurrentTab] = useState<NavTab>(() => {
+    try {
+      const stored = localStorage.getItem('auth_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u?.role === 'ADMIN') return 'admin-dashboard';
+      }
+    } catch {}
+    return 'catalog';
+  });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Saat role ADMIN terdeteksi/login, arahkan ke admin-dashboard sebagai first page
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      setCurrentTab((prev) => (prev === 'catalog' ? 'admin-dashboard' : prev));
+    }
+  }, [user?.role, user?.id]);
 
   // Saat berpindah halaman/tab, reset query pencarian Navbar
   useEffect(() => {
@@ -290,20 +307,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content Area: Header Navbar on top & Scrollable main content viewport */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        {/* Top Navigation Bar */}
-        <Navbar
-          currentTab={currentTab}
-          onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-          onNavigateToPOS={() => setCurrentTab('pos')}
-          onNavigateToProfile={() => setCurrentTab('profile')}
-          onNavigateToConfiguration={() => setCurrentTab('configuration')}
-          onNavigateToCatalog={() => setCurrentTab('catalog')}
-          onSearchChange={(q) => setSearchQuery(q)}
-          searchQuery={searchQuery}
-          showSearchBar={currentTab !== 'catalog'}
-        />
+      {/* Main Content Area: Scrollable main content viewport */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+        {/* Floating Mobile Sidebar Trigger */}
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="lg:hidden fixed top-3.5 left-3.5 z-30 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+          aria-label="Buka Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
 
         {/* Main Content Viewport */}
         <main className="flex-1 overflow-y-auto min-h-0">
@@ -344,10 +357,13 @@ export default function App() {
             <CartView
               products={products}
               onRefreshProducts={fetchProducts}
+              onNavigateToCatalog={() => setCurrentTab('catalog')}
             />
           )}
 
           {currentTab === 'history' && <SalesHistoryView />}
+
+          {currentTab === 'admin-dashboard' && <AdminDashboardView />}
 
           {currentTab === 'dashboard' && <TenantDashboardView />}
 

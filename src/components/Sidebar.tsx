@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
 
 export type NavTab =
+  | 'admin-dashboard'
   | 'catalog'
   | 'categories'
   | 'product-management'
@@ -36,7 +37,6 @@ export type NavTab =
   | 'tenant-info'
   | 'activity-log'
   | 'login-history'
-  | 'tenants'
   | 'configuration'
   | 'profile';
 
@@ -160,12 +160,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           roles: ['MANAGER'],
         },
         {
-          id: 'categories' as NavTab,
-          label: t('nav.categories', 'Kategori & Stok'),
-          icon: Layers,
-          roles: ['ADMIN', 'CASHIER'],
-        },
-        {
           id: 'cashiers' as NavTab,
           label: t('nav.cashiers', 'Kelola Staf Kasir'),
           icon: Users2,
@@ -176,12 +170,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: t('nav.tenantInfo', 'Tenant Info'),
           icon: Building2,
           roles: ['MANAGER'],
-        },
-        {
-          id: 'tenants' as NavTab,
-          label: t('nav.tenants', 'Manajemen Tenant'),
-          icon: Building2,
-          roles: ['ADMIN'],
         },
       ],
     },
@@ -207,6 +195,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'admin',
       title: t('nav.groups.admin', 'Admin'),
       items: [
+        {
+          id: 'admin-dashboard' as NavTab,
+          label: t('nav.adminDashboard', 'Dashboard Admin'),
+          icon: BarChart3,
+          roles: ['ADMIN'],
+        },
         {
           id: 'tenants' as NavTab,
           label: t('nav.tenants', 'Manajemen Tenant'),

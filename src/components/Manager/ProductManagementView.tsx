@@ -263,9 +263,6 @@ export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 Manajemen Produk
               </h1>
-              <p className="text-xs text-slate-500">
-                Kelola data katalog sembako, SKU barcode, harga jual & modal, serta batas minimum stok.
-              </p>
             </div>
           </div>
         </div>

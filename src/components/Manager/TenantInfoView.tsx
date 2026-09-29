@@ -189,9 +189,6 @@ export const TenantInfoView: React.FC = () => {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Informasi & Akun Tenant Toko
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Pantau profil usaha warung, staf aktif, data operasional, serta opsi pengajuan penonaktifan akun.
-          </p>
         </div>
 
         <button

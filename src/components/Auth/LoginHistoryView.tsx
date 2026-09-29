@@ -20,6 +20,8 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Filter,
   Info,
   X,
   Copy,
@@ -27,6 +29,7 @@ import {
   Clock,
   Laptop,
 } from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
 import { LoginHistoryItem, LoginHistoryResponse, Role, Tenant } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 
@@ -65,7 +68,6 @@ export const LoginHistoryView: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<'ALL' | Role>('ALL');
   const [selectedTenantId, setSelectedTenantId] = useState<string>('ALL');
   const [selectedDate, setSelectedDate] = useState<DatePickerValue>(null);
-  const [activeDatePreset, setActiveDatePreset] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom'>('all');
 
   // Tenant list for ADMIN filter
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -189,37 +191,8 @@ export const LoginHistoryView: React.FC = () => {
     setPage(1);
   };
 
-  // Date Presets Handler
-  const handleApplyPreset = (preset: 'all' | 'today' | 'yesterday' | '7days' | '30days') => {
-    setActiveDatePreset(preset);
-    setPage(1);
-
-    if (preset === 'all') {
-      setSelectedDate(null);
-      return;
-    }
-
-    const now = new Date();
-    if (preset === 'today') {
-      setSelectedDate(now);
-    } else if (preset === 'yesterday') {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
-      setSelectedDate(y);
-    } else if (preset === '7days') {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 7);
-      setSelectedDate([start, now]);
-    } else if (preset === '30days') {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 30);
-      setSelectedDate([start, now]);
-    }
-  };
-
   const handleDateChange = (val: DatePickerValue) => {
     setSelectedDate(val);
-    setActiveDatePreset('custom');
     setPage(1);
   };
 
@@ -230,7 +203,6 @@ export const LoginHistoryView: React.FC = () => {
     setSelectedRole('ALL');
     setSelectedTenantId('ALL');
     setSelectedDate(null);
-    setActiveDatePreset('all');
     setPage(1);
   };
 
@@ -329,16 +301,8 @@ export const LoginHistoryView: React.FC = () => {
     }
   };
 
-  // Page title and subtitle based on Role
-  let pageTitle = t('loginHistory.title', 'Histori & Audit Login');
-  let pageSubtitle = t('loginHistory.subtitleManager', 'Pantau riwayat masuk seluruh kasir dan staf pada tenant toko Anda.');
-  if (role === 'CASHIER') {
-    pageTitle = t('loginHistory.titleCashier', 'Histori Login Saya');
-    pageSubtitle = t('loginHistory.subtitleCashier', 'Riwayat aktivitas masuk akun Anda dan perangkat yang digunakan.');
-  } else if (role === 'ADMIN') {
-    pageTitle = t('loginHistory.titleAdmin', 'Audit Histori Login Global');
-    pageSubtitle = t('loginHistory.subtitleAdmin', 'Pengawasan keamanan login seluruh pengguna di seluruh tenant KasirWarung.');
-  }
+  // Page title
+  const pageTitle = t('loginHistory.title', 'Histori Login');
 
   const hasActiveFilters =
     searchQuery !== '' ||
@@ -350,34 +314,11 @@ export const LoginHistoryView: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* 1. Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 shadow-xs">
-            <KeyRound className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                {pageTitle}
-              </h1>
-              {renderRoleBadge(role)}
-            </div>
-            <p className="text-sm text-slate-500 mt-0.5">{pageSubtitle}</p>
-          </div>
-        </div>
-
-        {/* Refresh & Actions */}
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <button
-            onClick={() => fetchLoginHistory()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer disabled:opacity-50"
-            title="Muat Ulang Data"
-          >
-            <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-            <span className="hidden sm:inline">{t('common.refresh', 'Perbarui')}</span>
-          </button>
-        </div>
+      <div className="flex items-center gap-2.5 pt-1">
+        <KeyRound className="w-5 h-5 text-emerald-600" />
+        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+          {pageTitle}
+        </h1>
       </div>
 
       {/* 2. Scope Tabs for MANAGER & ADMIN */}
@@ -416,140 +357,37 @@ export const LoginHistoryView: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Summary Metrics Cards (Responsive: 1 col on mobile, 2 on tablet, 4 on desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total attempts */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
-            <KeyRound className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">{t('loginHistory.statTotal', 'Total Percobaan')}</div>
-            <div className="text-lg sm:text-xl font-bold text-slate-900">{stats.total}</div>
-          </div>
-        </div>
-
-        {/* Successful Logins */}
-        <div className="bg-white p-4 rounded-2xl border border-emerald-100 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-emerald-700">{t('loginHistory.statSuccess', 'Login Berhasil')}</div>
-            <div className="text-lg sm:text-xl font-bold text-emerald-800">{stats.successCount}</div>
-          </div>
-        </div>
-
-        {/* Failed Logins */}
-        <div className="bg-white p-4 rounded-2xl border border-rose-100 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700 shrink-0">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-rose-700">{t('loginHistory.statFailed', 'Percobaan Gagal')}</div>
-            <div className="text-lg sm:text-xl font-bold text-rose-800">{stats.failedCount}</div>
-          </div>
-        </div>
-
-        {/* Unique Users */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0">
-            <User className="w-5 h-5 text-indigo-600" />
-          </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">{t('loginHistory.statUsers', 'Pengguna Unik')}</div>
-            <div className="text-lg sm:text-xl font-bold text-indigo-900">{stats.uniqueUsers}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Filters Card */}
+      {/* Filters Card */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        {/* Row 1: Search, Status, Role, and Tenant (if ADMIN) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+        {/* Row 1: Search and Date Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
           {/* Keyword Search */}
-          <div className="lg:col-span-4 relative">
+          <div className="md:col-span-7 lg:col-span-8 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={t('loginHistory.searchPlaceholder', 'Cari nama, email, IP, perangkat...')}
-              className="w-full pl-9 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-600 focus:outline-hidden transition"
+              className="w-full pl-9 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-600 focus:outline-hidden transition shadow-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
             {searchQuery && (
               <button
                 onClick={() => handleSearchChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* Status Filter */}
-          <div className="lg:col-span-2">
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value as any);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-600 focus:outline-hidden transition cursor-pointer"
-            >
-              <option value="ALL">{t('loginHistory.statusAll', 'Semua Status')}</option>
-              <option value="SUCCESS">{t('loginHistory.statusSuccess', 'Berhasil')}</option>
-              <option value="FAILED">{t('loginHistory.statusFailed', 'Gagal')}</option>
-            </select>
-          </div>
-
-          {/* Role Filter (Only for Manager/Admin in ALL scope) */}
-          {role !== 'CASHIER' && scope === 'ALL' && (
-            <div className="lg:col-span-2">
-              <select
-                value={selectedRole}
-                onChange={(e) => {
-                  setSelectedRole(e.target.value as any);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-600 focus:outline-hidden transition cursor-pointer"
-              >
-                <option value="ALL">{t('loginHistory.roleAll', 'Semua Peran')}</option>
-                {role === 'ADMIN' && <option value="ADMIN">Super Admin</option>}
-                <option value="MANAGER">Manajer Toko</option>
-                <option value="CASHIER">Kasir</option>
-              </select>
-            </div>
-          )}
-
-          {/* Tenant Filter (Only for ADMIN in ALL scope) */}
-          {role === 'ADMIN' && scope === 'ALL' && (
-            <div className="lg:col-span-2">
-              <select
-                value={selectedTenantId}
-                onChange={(e) => {
-                  setSelectedTenantId(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-600 focus:outline-hidden transition cursor-pointer"
-              >
-                <option value="ALL">{t('loginHistory.tenantAll', 'Semua Toko')}</option>
-                {tenants.map((tItem) => (
-                  <option key={tItem.id} value={tItem.id}>
-                    {tItem.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* React Date Picker */}
-          <div className={`${role === 'ADMIN' && scope === 'ALL' ? 'lg:col-span-2' : role !== 'CASHIER' && scope === 'ALL' ? 'lg:col-span-4' : 'lg:col-span-6'}`}>
+          <div className="md:col-span-5 lg:col-span-4">
             <DatePicker
               onChange={handleDateChange}
               value={selectedDate}
               format="dd/MM/yyyy"
-              clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700" />}
+              clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />}
               calendarIcon={<CalendarIcon className="w-4 h-4 text-slate-500" />}
               dayPlaceholder="dd"
               monthPlaceholder="mm"
@@ -559,71 +397,284 @@ export const LoginHistoryView: React.FC = () => {
           </div>
         </div>
 
-        {/* Row 2: Date Presets and Clear Filter Button */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="text-slate-400 font-medium">{t('loginHistory.filterDate', 'Rentang Tanggal')}:</span>
-            <button
-              onClick={() => handleApplyPreset('all')}
-              className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-                activeDatePreset === 'all'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t('loginHistory.allDates', 'Semua')}
-            </button>
-            <button
-              onClick={() => handleApplyPreset('today')}
-              className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-                activeDatePreset === 'today'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t('loginHistory.today', 'Hari Ini')}
-            </button>
-            <button
-              onClick={() => handleApplyPreset('yesterday')}
-              className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-                activeDatePreset === 'yesterday'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t('loginHistory.yesterday', 'Kemarin')}
-            </button>
-            <button
-              onClick={() => handleApplyPreset('7days')}
-              className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-                activeDatePreset === '7days'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t('loginHistory.sevenDays', '7 Hari Terakhir')}
-            </button>
-            <button
-              onClick={() => handleApplyPreset('30days')}
-              className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-                activeDatePreset === '30days'
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t('loginHistory.thirtyDays', '30 Hari Terakhir')}
-            </button>
+        {/* Unified Filter Group: Status Filter, Role Filter, dan Tenant Filter */}
+        <div className="p-3 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200">
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Grup Filter Kategori</span>
+            </div>
+            <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500 hidden sm:inline">
+              Status, Peran & Toko
+            </span>
           </div>
 
-          {hasActiveFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-2.5">
+            {/* Status Filter */}
+            <div className="flex-1 min-w-[170px]">
+              <Select.Root
+                value={selectedStatus}
+                onValueChange={(val: 'ALL' | 'SUCCESS' | 'FAILED') => {
+                  setSelectedStatus(val);
+                  setPage(1);
+                }}
+              >
+                <Select.Trigger
+                  className="w-full inline-flex items-center justify-between px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-600 focus:outline-hidden transition cursor-pointer shadow-xs gap-2"
+                  aria-label={t('loginHistory.filterStatus', 'Filter Status')}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {selectedStatus === 'SUCCESS' && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    )}
+                    {selectedStatus === 'FAILED' && (
+                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                    )}
+                    {selectedStatus === 'ALL' && (
+                      <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                    )}
+                    <Select.Value>
+                      <span className="truncate">
+                        {selectedStatus === 'ALL' && t('loginHistory.statusAll', 'Semua Status')}
+                        {selectedStatus === 'SUCCESS' && t('loginHistory.statusSuccess', 'Berhasil')}
+                        {selectedStatus === 'FAILED' && t('loginHistory.statusFailed', 'Gagal')}
+                      </span>
+                    </Select.Value>
+                  </div>
+                  <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0">
+                    <ChevronDown className="w-4 h-4" />
+                  </Select.Icon>
+                </Select.Trigger>
+
+                <Select.Portal>
+                  <Select.Content
+                    className="z-50 min-w-[180px] overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 animate-in fade-in-80 zoom-in-95"
+                    position="popper"
+                    sideOffset={6}
+                  >
+                    <Select.Viewport className="p-1 space-y-0.5">
+                      <Select.Item
+                        value="ALL"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-slate-400" />
+                          <Select.ItemText>{t('loginHistory.statusAll', 'Semua Status')}</Select.ItemText>
+                        </div>
+                        <Select.ItemIndicator className="text-emerald-600 pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="SUCCESS"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <Select.ItemText>{t('loginHistory.statusSuccess', 'Berhasil')}</Select.ItemText>
+                        </div>
+                        <Select.ItemIndicator className="text-emerald-600 pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="FAILED"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          <Select.ItemText>{t('loginHistory.statusFailed', 'Gagal')}</Select.ItemText>
+                        </div>
+                        <Select.ItemIndicator className="text-emerald-600 pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+
+            {/* Role Filter (Only for Manager/Admin in ALL scope) */}
+            {role !== 'CASHIER' && scope === 'ALL' && (
+              <div className="flex-1 min-w-[170px]">
+                <Select.Root
+                  value={selectedRole}
+                  onValueChange={(val: 'ALL' | Role) => {
+                    setSelectedRole(val);
+                    setPage(1);
+                  }}
+                >
+                  <Select.Trigger
+                    className="w-full inline-flex items-center justify-between px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-600 focus:outline-hidden transition cursor-pointer shadow-xs gap-2"
+                    aria-label={t('loginHistory.filterRole', 'Filter Peran')}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <User className="w-4 h-4 text-slate-400 shrink-0" />
+                      <Select.Value>
+                        <span className="truncate">
+                          {selectedRole === 'ALL' && t('loginHistory.roleAll', 'Semua Peran')}
+                          {selectedRole === 'ADMIN' && 'Super Admin'}
+                          {selectedRole === 'MANAGER' && 'Manajer Toko'}
+                          {selectedRole === 'CASHIER' && 'Kasir'}
+                        </span>
+                      </Select.Value>
+                    </div>
+                    <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0">
+                      <ChevronDown className="w-4 h-4" />
+                    </Select.Icon>
+                  </Select.Trigger>
+
+                  <Select.Portal>
+                    <Select.Content
+                      className="z-50 min-w-[180px] overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 animate-in fade-in-80 zoom-in-95"
+                      position="popper"
+                      sideOffset={6}
+                    >
+                      <Select.Viewport className="p-1 space-y-0.5">
+                        <Select.Item
+                          value="ALL"
+                          className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                        >
+                          <Select.ItemText>{t('loginHistory.roleAll', 'Semua Peran')}</Select.ItemText>
+                          <Select.ItemIndicator className="text-emerald-600 pl-2">
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+
+                        {role === 'ADMIN' && (
+                          <Select.Item
+                            value="ADMIN"
+                            className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                          >
+                            <Select.ItemText>Super Admin</Select.ItemText>
+                            <Select.ItemIndicator className="text-emerald-600 pl-2">
+                              <Check className="w-4 h-4 stroke-[2.5]" />
+                            </Select.ItemIndicator>
+                          </Select.Item>
+                        )}
+
+                        <Select.Item
+                          value="MANAGER"
+                          className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                        >
+                          <Select.ItemText>Manajer Toko</Select.ItemText>
+                          <Select.ItemIndicator className="text-emerald-600 pl-2">
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+
+                        <Select.Item
+                          value="CASHIER"
+                          className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                        >
+                          <Select.ItemText>Kasir</Select.ItemText>
+                          <Select.ItemIndicator className="text-emerald-600 pl-2">
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+                      </Select.Viewport>
+                    </Select.Content>
+                  </Select.Portal>
+                </Select.Root>
+              </div>
+            )}
+
+            {/* Tenant Filter (Only for ADMIN in ALL scope) */}
+            {role === 'ADMIN' && scope === 'ALL' && (
+              <div className="flex-1 min-w-[170px]">
+                <Select.Root
+                  value={selectedTenantId}
+                  onValueChange={(val: string) => {
+                    setSelectedTenantId(val);
+                    setPage(1);
+                  }}
+                >
+                  <Select.Trigger
+                    className="w-full inline-flex items-center justify-between px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-600 focus:outline-hidden transition cursor-pointer shadow-xs gap-2"
+                    aria-label={t('loginHistory.filterTenant', 'Filter Toko / Tenant')}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                      <Select.Value>
+                        <span className="truncate">
+                          {selectedTenantId === 'ALL'
+                            ? t('loginHistory.tenantAll', 'Semua Toko')
+                            : tenants.find((tItem) => tItem.id === selectedTenantId)?.name || selectedTenantId}
+                        </span>
+                      </Select.Value>
+                    </div>
+                    <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0">
+                      <ChevronDown className="w-4 h-4" />
+                    </Select.Icon>
+                  </Select.Trigger>
+
+                  <Select.Portal>
+                    <Select.Content
+                      className="z-50 min-w-[200px] max-h-72 overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 animate-in fade-in-80 zoom-in-95"
+                      position="popper"
+                      sideOffset={6}
+                    >
+                      <Select.Viewport className="p-1 space-y-0.5">
+                        <Select.Item
+                          value="ALL"
+                          className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                        >
+                          <Select.ItemText>{t('loginHistory.tenantAll', 'Semua Toko')}</Select.ItemText>
+                          <Select.ItemIndicator className="text-emerald-600 pl-2">
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+
+                        {tenants.map((tItem) => (
+                          <Select.Item
+                            key={tItem.id}
+                            value={tItem.id}
+                            className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 transition-colors"
+                          >
+                            <Select.ItemText>{tItem.name}</Select.ItemText>
+                            <Select.ItemIndicator className="text-emerald-600 pl-2">
+                              <Check className="w-4 h-4 stroke-[2.5]" />
+                            </Select.ItemIndicator>
+                          </Select.Item>
+                        ))}
+                      </Select.Viewport>
+                    </Select.Content>
+                  </Select.Portal>
+                </Select.Root>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+        {/* Refresh & Actions */}
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={() => fetchLoginHistory()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer disabled:opacity-50"
+            title="Muat Ulang Data"
+          >
+            <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+            <span className="hidden sm:inline">{t('common.refresh', 'Perbarui')}</span>
+          </button>
+        </div>
+
+        {/* Clear Filter Action */}
+        {hasActiveFilters && (
+          
             <button
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition cursor-pointer ml-auto"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 dark:text-rose-400 rounded-lg transition cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               {t('loginHistory.clearFilter', 'Reset Filter')}
             </button>
-          )}
+          
+        )}
         </div>
       </div>
 

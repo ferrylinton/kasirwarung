@@ -264,9 +264,6 @@ export const ActivityLogView: React.FC = () => {
                 Role: {user?.role || 'MANAGER'}
               </span>
             </div>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {t('activityLog.subtitle', 'Audit lengkap seluruh riwayat aksi manajemen produk, kategori, dan staf kasir.')}
-            </p>
           </div>
         </div>
 

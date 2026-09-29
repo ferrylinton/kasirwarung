@@ -149,9 +149,6 @@ export const CashierManagementView: React.FC = () => {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             Kelola Staf Kasir: {tenant?.name || 'Berkah Jaya'}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Tambah akun kasir yang bertugas melayani transaksi dan pembuatan nota di warung Anda.
-          </p>
         </div>
 
         <button

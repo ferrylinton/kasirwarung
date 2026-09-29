@@ -3089,6 +3089,296 @@ async function startServer() {
     }
   });
 
+  // 16b. Helper to ensure rich historical sample orders for Admin Dashboard
+  async function ensureSeedOrdersForAdmin() {
+    try {
+      const maduraOrdersCount = await ordersCol.countDocuments({ tenantId: 'tenant-madura-24jam' });
+      if (maduraOrdersCount === 0) {
+        const now = Date.now();
+        const extraOrders = [
+          {
+            id: 'ord-mdr-1',
+            orderNumber: 'MDR-1001',
+            tenantId: 'tenant-madura-24jam',
+            items: [
+              { productId: 'prod-madura-1', name: 'Beras Pandan Wangi Premium 5kg', price: 78000, qty: 2, subtotal: 156000 },
+              { productId: 'prod-madura-3', name: 'Bensin Eceran 1 Liter', price: 12000, qty: 3, subtotal: 36000 },
+            ],
+            total: 192000,
+            tenderAmount: 200000,
+            changeAmount: 8000,
+            paymentMethod: 'TUNAI',
+            cashierName: 'Cak Mahmud',
+            createdAt: new Date(now - 1000 * 60 * 45).toISOString(),
+          },
+          {
+            id: 'ord-mdr-2',
+            orderNumber: 'MDR-1002',
+            tenantId: 'tenant-madura-24jam',
+            items: [
+              { productId: 'prod-madura-2', name: 'Minyak Goreng SunCo 2L', price: 38000, qty: 1, subtotal: 38000 },
+              { productId: 'prod-madura-4', name: 'Es Teh Manis Jumbo', price: 4000, qty: 4, subtotal: 16000 },
+            ],
+            total: 54000,
+            tenderAmount: 54000,
+            changeAmount: 0,
+            paymentMethod: 'QRIS',
+            cashierName: 'Cak Mahmud',
+            createdAt: new Date(now - 1000 * 60 * 120).toISOString(),
+          },
+          {
+            id: 'ord-mdr-3',
+            orderNumber: 'MDR-0988',
+            tenantId: 'tenant-madura-24jam',
+            items: [
+              { productId: 'prod-madura-1', name: 'Beras Pandan Wangi Premium 5kg', price: 78000, qty: 3, subtotal: 234000 },
+              { productId: 'prod-madura-3', name: 'Bensin Eceran 1 Liter', price: 12000, qty: 5, subtotal: 60000 },
+            ],
+            total: 294000,
+            tenderAmount: 300000,
+            changeAmount: 6000,
+            paymentMethod: 'TUNAI',
+            cashierName: 'Cak Mahmud',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 3).toISOString(),
+          },
+          {
+            id: 'ord-mdr-4',
+            orderNumber: 'MDR-0955',
+            tenantId: 'tenant-madura-24jam',
+            items: [
+              { productId: 'prod-madura-2', name: 'Minyak Goreng SunCo 2L', price: 38000, qty: 4, subtotal: 152000 },
+              { productId: 'prod-madura-4', name: 'Es Teh Manis Jumbo', price: 4000, qty: 10, subtotal: 40000 },
+            ],
+            total: 192000,
+            tenderAmount: 200000,
+            changeAmount: 8000,
+            paymentMethod: 'TRANSFER',
+            cashierName: 'Cak Mahmud',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 12).toISOString(),
+          },
+          {
+            id: 'ord-mdr-5',
+            orderNumber: 'MDR-0890',
+            tenantId: 'tenant-madura-24jam',
+            items: [
+              { productId: 'prod-madura-1', name: 'Beras Pandan Wangi Premium 5kg', price: 78000, qty: 5, subtotal: 390000 },
+              { productId: 'prod-madura-3', name: 'Bensin Eceran 1 Liter', price: 12000, qty: 12, subtotal: 144000 },
+            ],
+            total: 534000,
+            tenderAmount: 550000,
+            changeAmount: 16000,
+            paymentMethod: 'TUNAI',
+            cashierName: 'Cak Mahmud',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 45).toISOString(),
+          },
+          {
+            id: 'ord-bkh-hist-1',
+            orderNumber: 'TR-8850',
+            tenantId: 'tenant-berkah-jaya',
+            items: [
+              { productId: 'prod-berkah-3', name: 'Beras Setra Ramos Cap Bunga 5kg', price: 69500, qty: 4, subtotal: 278000 },
+              { productId: 'prod-berkah-59', name: 'Telur Ayam Negeri 1kg', price: 29000, qty: 6, subtotal: 174000 },
+              { productId: 'prod-berkah-43', name: 'Indomie Goreng Original', price: 3100, qty: 20, subtotal: 62000 },
+            ],
+            total: 514000,
+            tenderAmount: 550000,
+            changeAmount: 36000,
+            paymentMethod: 'TUNAI',
+            cashierName: 'Bu Siti (Kasir Utama)',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 4).toISOString(),
+          },
+          {
+            id: 'ord-bkh-hist-2',
+            orderNumber: 'TR-8720',
+            tenantId: 'tenant-berkah-jaya',
+            items: [
+              { productId: 'prod-berkah-16', name: 'Minyak Sania 2L', price: 35000, qty: 8, subtotal: 280000 },
+              { productId: 'prod-berkah-27', name: 'Gula Pasir Gulaku 1kg', price: 18000, qty: 12, subtotal: 216000 },
+              { productId: 'prod-berkah-57', name: 'Kopi Kapal Api Spesial Mix (10s)', price: 15500, qty: 10, subtotal: 155000 },
+            ],
+            total: 651000,
+            tenderAmount: 651000,
+            changeAmount: 0,
+            paymentMethod: 'QRIS',
+            cashierName: 'Bu Siti (Kasir Utama)',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 18).toISOString(),
+          },
+          {
+            id: 'ord-bkh-hist-3',
+            orderNumber: 'TR-8500',
+            tenantId: 'tenant-berkah-jaya',
+            items: [
+              { productId: 'prod-berkah-3', name: 'Beras Setra Ramos Cap Bunga 5kg', price: 69500, qty: 10, subtotal: 695000 },
+              { productId: 'prod-berkah-81', name: 'Gas Elpiji 3kg (Tabung Melon Refill)', price: 22000, qty: 8, subtotal: 176000 },
+            ],
+            total: 871000,
+            tenderAmount: 900000,
+            changeAmount: 29000,
+            paymentMethod: 'TUNAI',
+            cashierName: 'Bu Siti (Kasir Utama)',
+            createdAt: new Date(now - 1000 * 60 * 60 * 24 * 50).toISOString(),
+          },
+        ];
+        await ordersCol.insertMany(extraOrders);
+      }
+    } catch (err) {
+      console.warn('ensureSeedOrdersForAdmin non-fatal:', err);
+    }
+  }
+
+  // 16c. Admin Global Dashboard Analytics (Top 10 Products, Tenant Omzet & Date Filter)
+  app.get('/api/admin/dashboard', authenticateToken, requireRole(['ADMIN']), async (req: any, res) => {
+    try {
+      await ensureSeedOrdersForAdmin();
+
+      const { startDate, endDate, tenantId, preset } = req.query;
+
+      const tenantsList = await tenantsCol.find().toArray();
+      const tenantMap = new Map<string, string>();
+      tenantsList.forEach((t: any) => tenantMap.set(t.id, t.name));
+
+      let allOrders = await ordersCol.find().toArray();
+
+      // Filter by tenantId if provided and not ALL
+      if (tenantId && tenantId !== 'ALL') {
+        allOrders = allOrders.filter((o: any) => o.tenantId === tenantId);
+      }
+
+      // Filter by Date Range
+      if (startDate || endDate) {
+        const start = startDate ? new Date(startDate as string).getTime() : 0;
+        const end = endDate ? new Date(endDate as string).getTime() : Date.now();
+
+        allOrders = allOrders.filter((o: any) => {
+          const t = new Date(o.createdAt).getTime();
+          return !isNaN(t) && t >= start && t <= end;
+        });
+      }
+
+      // 1. Overall Stats
+      const totalRevenue = allOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+      const totalOrders = allOrders.length;
+      let totalProductsSold = 0;
+      allOrders.forEach((o: any) => {
+        (o.items || []).forEach((it: any) => {
+          totalProductsSold += Number(it.qty) || 0;
+        });
+      });
+
+      const uniqueActiveTenants = new Set(allOrders.map((o: any) => o.tenantId));
+      const activeTenantsCount = uniqueActiveTenants.size;
+      const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+      // 2. Omzet di Setiap Tenant
+      const tenantsOmzet = tenantsList.map((t: any) => {
+        const tenantOrders = allOrders.filter((o: any) => o.tenantId === t.id);
+        const tRevenue = tenantOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+        let tItemsSold = 0;
+        const pMap: { [key: string]: { name: string; qty: number; revenue: number } } = {};
+
+        tenantOrders.forEach((o: any) => {
+          (o.items || []).forEach((it: any) => {
+            const qty = Number(it.qty) || 0;
+            const subtotal = Number(it.subtotal) || 0;
+            tItemsSold += qty;
+            if (!pMap[it.productId]) {
+              pMap[it.productId] = { name: it.name, qty: 0, revenue: 0 };
+            }
+            pMap[it.productId].qty += qty;
+            pMap[it.productId].revenue += subtotal;
+          });
+        });
+
+        const topProductList = Object.values(pMap).sort((a, b) => b.qty - a.qty);
+        const topProduct = topProductList.length > 0 ? topProductList[0] : null;
+        const revenuePercentage = totalRevenue > 0 ? Number(((tRevenue / totalRevenue) * 100).toFixed(1)) : 0;
+
+        return {
+          tenantId: t.id,
+          tenantName: t.name,
+          address: t.address,
+          phone: t.phone,
+          status: t.status,
+          orderCount: tenantOrders.length,
+          totalRevenue: tRevenue,
+          itemsSold: tItemsSold,
+          revenuePercentage,
+          topProduct,
+        };
+      }).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue);
+
+      // 3. 10 Produk Terlaris (Top 10 Best-Selling Products)
+      const globalProductMap: {
+        [key: string]: {
+          productId: string;
+          name: string;
+          category: string;
+          totalQty: number;
+          totalRevenue: number;
+          tenantId: string;
+          tenantName: string;
+        };
+      } = {};
+
+      allOrders.forEach((o: any) => {
+        const orderTenantName = tenantMap.get(o.tenantId) || 'Warung';
+        (o.items || []).forEach((it: any) => {
+          const qty = Number(it.qty) || 0;
+          const subtotal = Number(it.subtotal) || 0;
+          const key = it.productId || it.name;
+
+          if (!globalProductMap[key]) {
+            globalProductMap[key] = {
+              productId: it.productId || key,
+              name: it.name,
+              category: it.category || 'Sembako & Kebutuhan',
+              totalQty: 0,
+              totalRevenue: 0,
+              tenantId: o.tenantId,
+              tenantName: orderTenantName,
+            };
+          }
+          globalProductMap[key].totalQty += qty;
+          globalProductMap[key].totalRevenue += subtotal;
+        });
+      });
+
+      const top10Products = Object.values(globalProductMap)
+        .sort((a, b) => b.totalQty - a.totalQty || b.totalRevenue - a.totalRevenue)
+        .slice(0, 10)
+        .map((p) => ({
+          productId: p.productId,
+          name: p.name,
+          category: p.category,
+          totalQty: p.totalQty,
+          totalRevenue: p.totalRevenue,
+          averagePrice: p.totalQty > 0 ? Math.round(p.totalRevenue / p.totalQty) : 0,
+          tenantName: p.tenantName,
+        }));
+
+      res.json({
+        success: true,
+        period: {
+          startDate: startDate ? String(startDate) : '',
+          endDate: endDate ? String(endDate) : '',
+          preset: preset ? String(preset) : 'today',
+        },
+        stats: {
+          totalRevenue,
+          totalOrders,
+          totalProductsSold,
+          activeTenantsCount,
+          totalTenants: tenantsList.length,
+          averageOrderValue,
+        },
+        tenantsOmzet,
+        top10Products,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
   // 17. Tenant Management from MongoDB (ADMIN only)
   app.get('/api/tenants', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
