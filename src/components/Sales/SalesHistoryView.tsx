@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-date-picker';
 import 'react-date-picker/dist/DatePicker.css';
+import DateRangePicker from '@wojtekmaj/react-daterange-picker';
+import '@wojtekmaj/react-daterange-picker/dist/DateRangePicker.css';
 import 'react-calendar/dist/Calendar.css';
-import * as Select from '@radix-ui/react-select';
+import * as Checkbox from '@radix-ui/react-checkbox';
 import {
   Receipt,
   Download,
@@ -11,12 +13,10 @@ import {
   QrCode,
   Search,
   Calendar,
+  CalendarDays,
   Clock,
   User,
-  ChevronDown,
   Check,
-  CreditCard,
-  Banknote,
 } from 'lucide-react';
 import { Order } from '../../types';
 import { useAuthStore } from '../../store/authStore';
@@ -36,10 +36,10 @@ export const SalesHistoryView: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [period, setPeriod] = useState<'today' | 'yesterday' | '7days' | 'month' | 'custom'>('today');
-  const [selectedDate, setSelectedDate] = useState<Value>(new Date());
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
+  const [singleDate, setSingleDate] = useState<ValuePiece>(new Date());
+  const [rangeDate, setRangeDate] = useState<Value>([new Date(), new Date()]);
   const [search, setSearch] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('Semua');
 
   // Confirmation Modals
   const [showCloseRegisterModal, setShowCloseRegisterModal] = useState(false);
@@ -67,65 +67,59 @@ export const SalesHistoryView: React.FC = () => {
     fetchOrders();
   }, [token]);
 
-  const handleDateChange = (val: Value) => {
-    setSelectedDate(val);
-    if (val) {
-      setPeriod('custom');
+  const handleSingleDateChange = (val: ValuePiece | any) => {
+    const d = val instanceof Date ? val : null;
+    setSingleDate(d);
+    if (d) {
+      setRangeDate([d, d]);
     }
   };
 
-  // Filter orders by date/period, search, and payment
+  const handleRangeDateChange = (val: Value) => {
+    setRangeDate(val);
+    if (Array.isArray(val) && val[0]) {
+      setSingleDate(val[0]);
+    } else if (val instanceof Date) {
+      setSingleDate(val);
+    }
+  };
+
+  // Filter orders by date/period and search
   const filteredOrders = orders.filter((o) => {
     const matchSearch =
       o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
       o.cashierName.toLowerCase().includes(search.toLowerCase()) ||
       o.items.some((it) => it.name.toLowerCase().includes(search.toLowerCase()));
 
-    const matchPayment = paymentFilter === 'Semua' || o.paymentMethod.toUpperCase() === paymentFilter.toUpperCase();
-
     let matchDate = true;
     const orderDate = new Date(o.createdAt);
-    const now = new Date();
 
     if (!isNaN(orderDate.getTime())) {
-      if (period === 'today') {
-        matchDate =
-          orderDate.getDate() === now.getDate() &&
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getFullYear() === now.getFullYear();
-      } else if (period === 'yesterday') {
-        const yesterday = new Date();
-        yesterday.setDate(now.getDate() - 1);
-        matchDate =
-          orderDate.getDate() === yesterday.getDate() &&
-          orderDate.getMonth() === yesterday.getMonth() &&
-          orderDate.getFullYear() === yesterday.getFullYear();
-      } else if (period === '7days') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
-        matchDate = orderDate >= sevenDaysAgo && orderDate <= now;
-      } else if (period === 'month') {
-        matchDate =
-          orderDate.getMonth() === now.getMonth() &&
-          orderDate.getFullYear() === now.getFullYear();
-      } else if (period === 'custom') {
-        if (selectedDate instanceof Date) {
+      if (dateMode === 'single') {
+        if (singleDate instanceof Date) {
           matchDate =
-            orderDate.getDate() === selectedDate.getDate() &&
-            orderDate.getMonth() === selectedDate.getMonth() &&
-            orderDate.getFullYear() === selectedDate.getFullYear();
-        } else if (Array.isArray(selectedDate) && selectedDate[0]) {
-          const startDate = new Date(selectedDate[0]);
+            orderDate.getDate() === singleDate.getDate() &&
+            orderDate.getMonth() === singleDate.getMonth() &&
+            orderDate.getFullYear() === singleDate.getFullYear();
+        }
+      } else {
+        // range mode
+        if (rangeDate instanceof Date) {
+          matchDate =
+            orderDate.getDate() === rangeDate.getDate() &&
+            orderDate.getMonth() === rangeDate.getMonth() &&
+            orderDate.getFullYear() === rangeDate.getFullYear();
+        } else if (Array.isArray(rangeDate) && rangeDate[0]) {
+          const startDate = new Date(rangeDate[0]);
           startDate.setHours(0, 0, 0, 0);
-          const endDate = selectedDate[1] ? new Date(selectedDate[1]) : new Date(selectedDate[0]);
+          const endDate = rangeDate[1] ? new Date(rangeDate[1]) : new Date(rangeDate[0]);
           endDate.setHours(23, 59, 59, 999);
           matchDate = orderDate >= startDate && orderDate <= endDate;
         }
       }
     }
 
-    return matchSearch && matchPayment && matchDate;
+    return matchSearch && matchDate;
   });
 
   // Financial aggregates
@@ -150,17 +144,29 @@ export const SalesHistoryView: React.FC = () => {
   const nonTunaiPercentage = totalOmzet > 0 ? ((qrisTransfer / totalOmzet) * 100).toFixed(1) : '0.0';
 
   const periodLabel =
-    period === 'today'
-      ? 'Hari Ini'
-      : period === 'yesterday'
-      ? 'Kemarin'
-      : period === '7days'
-      ? '7 Hari Terakhir'
-      : period === 'month'
-      ? 'Bulan Ini'
-      : selectedDate instanceof Date
-      ? selectedDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-      : 'Kustom';
+    dateMode === 'single'
+      ? singleDate instanceof Date
+        ? singleDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'Tanggal Dipilih'
+      : Array.isArray(rangeDate) && rangeDate[0]
+      ? rangeDate[1] &&
+        new Date(rangeDate[0]).toDateString() !== new Date(rangeDate[1]).toDateString()
+        ? `${new Date(rangeDate[0]).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+          })} - ${new Date(rangeDate[1]).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })}`
+        : new Date(rangeDate[0]).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })
+      : rangeDate instanceof Date
+      ? rangeDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'Rentang Tanggal';
 
   const handleDownloadReport = () => {
     addToast({
@@ -201,7 +207,7 @@ export const SalesHistoryView: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-emerald-200/90 pt-1 border-t border-emerald-700/50">
             <span>{filteredOrders.length} Transaksi Selesai</span>
             <span className="font-semibold text-emerald-300 bg-emerald-900/60 px-1.5 py-0.2 rounded">
-              {period === 'today' ? 'Hari Ini' : periodLabel}
+              {periodLabel}
             </span>
           </div>
         </div>
@@ -249,73 +255,66 @@ export const SalesHistoryView: React.FC = () => {
         </div>
       </div>
 
-      {/* Date Periods & Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        {/* Unified Date Related Filter Control Group */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-xl border border-slate-300/40 dark:border-slate-700/60 shadow-xs">
-          {(
-            [
-              { id: 'today', label: 'Hari Ini' },
-              { id: 'yesterday', label: 'Kemarin' },
-              { id: '7days', label: '7 Hari Terakhir' },
-              { id: 'month', label: 'Bulan Ini' },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                setPeriod(t.id);
-                if (t.id === 'today') {
-                  setSelectedDate(new Date());
-                } else if (t.id === 'yesterday') {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 1);
-                  setSelectedDate(d);
-                } else {
-                  setSelectedDate(null);
-                }
-              }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                period === t.id
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-
-          {/* Divider */}
-          <div className="hidden sm:block h-4 w-px bg-slate-300 dark:bg-slate-700 mx-0.5" />
-
-          {/* React Date Picker in same group */}
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
-              period === 'custom'
-                ? 'bg-white dark:bg-slate-900 ring-2 ring-emerald-600 dark:ring-emerald-500 shadow-xs'
-                : 'bg-white/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-900'
-            }`}
+      {/* Date Filter Controls */}
+      <div className="flex flex-wrap items-center gap-2.5 pt-2">
+        {/* Mode Switcher: Satu Tanggal / Rentang Tanggal using Radix UI Checkbox */}
+        <div className="flex items-center h-10 gap-2 px-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+          <Checkbox.Root
+            id="date-range-mode-checkbox"
+            checked={dateMode === 'range'}
+            onCheckedChange={(checked) => setDateMode(checked === true ? 'range' : 'single')}
+            className="flex h-4.5 w-4.5 shrink-0 appearance-none items-center justify-center rounded-md border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 data-[state=checked]:bg-emerald-700 data-[state=checked]:border-emerald-700 text-white outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 transition-all cursor-pointer shadow-2xs"
           >
-            <Calendar
-              className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                period === 'custom' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
-              }`}
-            />
+            <Checkbox.Indicator className="text-white flex items-center justify-center">
+              <Check className="w-3 h-3 stroke-[3]" />
+            </Checkbox.Indicator>
+          </Checkbox.Root>
+          <label
+            htmlFor="date-range-mode-checkbox"
+            className="text-xs font-semibold text-slate-700 dark:text-slate-200 select-none cursor-pointer flex items-center gap-1.5"
+          >
+            {dateMode === 'range' ? (
+              <>
+                <CalendarDays className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Rentang Tanggal</span>
+              </>
+            ) : (
+              <>
+                <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Rentang Tanggal</span>
+              </>
+            )}
+          </label>
+        </div>
+
+        {/* Date Picker Component (Satu Tanggal atau Rentang Tanggal) */}
+        <div className="flex items-center h-10 gap-1.5 px-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs transition-all">
+          {dateMode === 'single' ? (
             <DatePicker
-              onChange={handleDateChange}
-              value={selectedDate}
+              onChange={handleSingleDateChange}
+              value={singleDate}
               locale="id-ID"
               format="dd/MM/yyyy"
-              clearIcon={selectedDate ? undefined : null}
+              clearIcon={singleDate ? undefined : null}
               className="custom-react-date-picker text-xs font-medium"
             />
-          </div>
+          ) : (
+            <DateRangePicker
+              onChange={handleRangeDateChange}
+              value={rangeDate}
+              locale="id-ID"
+              format="dd/MM/yyyy"
+              rangeDivider=" — "
+              clearIcon={rangeDate ? undefined : null}
+              className="custom-react-date-picker text-xs font-medium"
+            />
+          )}
         </div>
       </div>
 
-      {/* Search, Payment Filter & Action Controls */}
+      {/* Search & Action Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[260px]">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[260px] max-w-md">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -326,86 +325,6 @@ export const SalesHistoryView: React.FC = () => {
               className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-hidden shadow-xs transition-all"
             />
           </div>
-
-          {/* Radix UI Select for Payment Filter */}
-          <Select.Root
-            value={paymentFilter}
-            onValueChange={(val) => setPaymentFilter(val)}
-          >
-            <Select.Trigger
-              className="inline-flex items-center justify-between gap-2.5 px-3.5 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 shadow-xs cursor-pointer transition-all"
-              aria-label="Metode Pembayaran"
-            >
-              <div className="flex items-center gap-2 truncate">
-                {paymentFilter === 'TUNAI' ? (
-                  <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                ) : paymentFilter === 'QRIS' ? (
-                  <QrCode className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                ) : (
-                  <CreditCard className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
-                )}
-                <Select.Value>
-                  <span className="truncate">
-                    {paymentFilter === 'Semua' && 'Semua Pembayaran'}
-                    {paymentFilter === 'TUNAI' && 'Uang Tunai'}
-                    {paymentFilter === 'QRIS' && 'QRIS'}
-                  </span>
-                </Select.Value>
-              </div>
-              <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0 ml-1">
-                <ChevronDown className="w-3.5 h-3.5" />
-              </Select.Icon>
-            </Select.Trigger>
-
-            <Select.Portal>
-              <Select.Content
-                className="z-50 min-w-[200px] overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 animate-in fade-in-80 zoom-in-95"
-                position="popper"
-                sideOffset={6}
-              >
-                <Select.Viewport className="p-1 space-y-0.5">
-                  <Select.Item
-                    value="Semua"
-                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-800 dark:data-[highlighted]:text-emerald-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      <Select.ItemText>Semua Pembayaran</Select.ItemText>
-                    </div>
-                    <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    </Select.ItemIndicator>
-                  </Select.Item>
-
-                  <Select.Item
-                    value="TUNAI"
-                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-800 dark:data-[highlighted]:text-emerald-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Banknote className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <Select.ItemText>Uang Tunai</Select.ItemText>
-                    </div>
-                    <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    </Select.ItemIndicator>
-                  </Select.Item>
-
-                  <Select.Item
-                    value="QRIS"
-                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-800 dark:data-[highlighted]:text-emerald-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <QrCode className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                      <Select.ItemText>QRIS</Select.ItemText>
-                    </div>
-                    <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                    </Select.ItemIndicator>
-                  </Select.Item>
-                </Select.Viewport>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
         </div>
 
         {/* Action Controls */}

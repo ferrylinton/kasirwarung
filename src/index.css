@@ -523,48 +523,71 @@ body {
   background-color: rgba(148, 163, 184, 0.6);
 }
 
-/* 📅 Custom React Date Picker & Calendar Theming */
-.custom-react-date-picker.react-date-picker {
+/* 📅 Custom React Date Picker & Date Range Picker & Calendar Theming */
+.custom-react-date-picker.react-date-picker,
+.custom-react-date-picker.react-daterange-picker {
   display: inline-flex;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  width: 100%;
 }
 
-.custom-react-date-picker .react-date-picker__wrapper {
+.custom-react-date-picker .react-date-picker__wrapper,
+.custom-react-date-picker .react-daterange-picker__wrapper {
   border: none !important;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.35rem;
 }
 
-.custom-react-date-picker .react-date-picker__inputGroup {
+.custom-react-date-picker .react-date-picker__inputGroup,
+.custom-react-date-picker .react-daterange-picker__inputGroup {
   display: flex;
   align-items: center;
   padding: 0.125rem 0.25rem;
   font-weight: 600;
   color: #1e293b;
+  flex: 1;
 }
 
-.dark .custom-react-date-picker .react-date-picker__inputGroup {
+.dark .custom-react-date-picker .react-date-picker__inputGroup,
+.dark .custom-react-date-picker .react-daterange-picker__inputGroup {
   color: #f1f5f9;
 }
 
-.custom-react-date-picker .react-date-picker__inputGroup__input {
+.custom-react-date-picker .react-daterange-picker__range-divider {
+  padding: 0 0.35rem;
+  font-weight: 700;
+  color: #64748b;
+  user-select: none;
+}
+
+.dark .custom-react-date-picker .react-daterange-picker__range-divider {
+  color: #94a3b8;
+}
+
+.custom-react-date-picker .react-date-picker__inputGroup__input,
+.custom-react-date-picker .react-daterange-picker__inputGroup__input {
   outline: none;
   border: none;
   background: transparent;
   color: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  padding: 0 1px;
+  padding: 0 2px;
+  min-width: 1.2em;
 }
 
-.custom-react-date-picker .react-date-picker__inputGroup__input:focus {
+.custom-react-date-picker .react-date-picker__inputGroup__input:focus,
+.custom-react-date-picker .react-daterange-picker__inputGroup__input:focus {
   background-color: rgba(25, 135, 84, 0.15);
   border-radius: 0.25rem;
 }
 
-.custom-react-date-picker .react-date-picker__button {
+.custom-react-date-picker .react-date-picker__button,
+.custom-react-date-picker .react-daterange-picker__button {
   padding: 0.25rem;
   border: none;
   background: transparent;
@@ -577,28 +600,33 @@ body {
   transition: all 0.15s ease;
 }
 
-.custom-react-date-picker .react-date-picker__button:hover {
+.custom-react-date-picker .react-date-picker__button:hover,
+.custom-react-date-picker .react-daterange-picker__button:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--theme-primary, #047857);
 }
 
-.dark .custom-react-date-picker .react-date-picker__button:hover {
+.dark .custom-react-date-picker .react-date-picker__button:hover,
+.dark .custom-react-date-picker .react-daterange-picker__button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #a3cfbb;
 }
 
-.custom-react-date-picker .react-date-picker__button svg {
+.custom-react-date-picker .react-date-picker__button svg,
+.custom-react-date-picker .react-daterange-picker__button svg {
   stroke: currentColor;
   width: 0.95rem;
   height: 0.95rem;
 }
 
 /* Calendar Dropdown Modal */
-.react-date-picker__calendar {
+.react-date-picker__calendar,
+.react-daterange-picker__calendar {
   z-index: 60 !important;
 }
 
-.react-date-picker__calendar .react-calendar {
+.react-date-picker__calendar .react-calendar,
+.react-daterange-picker__calendar .react-calendar {
   border: 1px solid #e2e8f0;
   border-radius: 1rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
@@ -608,7 +636,8 @@ body {
   overflow: hidden;
 }
 
-.dark .react-date-picker__calendar .react-calendar {
+.dark .react-date-picker__calendar .react-calendar,
+.dark .react-daterange-picker__calendar .react-calendar {
   border-color: #334155;
   background-color: #0f172a;
   color: #f1f5f9;
