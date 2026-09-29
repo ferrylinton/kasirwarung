@@ -3,6 +3,7 @@ import {
   Package,
   Layers,
   Calculator,
+  ShoppingCart,
   Receipt,
   BarChart3,
   Users2,
@@ -115,9 +116,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: t('nav.groups.transactions', 'Transaksi & Kasir'),
       items: [
         {
+          id: 'catalog' as NavTab,
+          label: t('nav.catalog', 'Katalog Produk'),
+          icon: Package,
+          badge: `${productCount || 0}+`,
+          roles: ['MANAGER', 'CASHIER'],
+        },
+        {
           id: 'pos' as NavTab,
-          label: t('nav.pos', 'Kasir / Transaksi'),
-          icon: Calculator,
+          label: t('nav.pos', 'Keranjang'),
+          icon: ShoppingCart,
           hasDot: true,
           roles: ['MANAGER', 'CASHIER'],
         },
@@ -125,21 +133,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'history' as NavTab,
           label: t('nav.history', 'Riwayat Penjualan'),
           icon: Receipt,
-          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+          roles: ['MANAGER', 'CASHIER'],
+        },
+        {
+          id: 'dashboard' as NavTab,
+          label: t('nav.dashboard', 'Dashboard Statistik'),
+          icon: BarChart3,
+          roles: ['MANAGER'],
         },
       ],
     },
     {
-      id: 'inventory',
-      title: t('nav.groups.inventory', 'Katalog & Produk'),
+      id: 'management',
+      title: t('nav.groups.management', 'Manajemen & Analisis'),
       items: [
-        {
-          id: 'catalog' as NavTab,
-          label: t('nav.catalog', 'Katalog Produk'),
-          icon: Package,
-          badge: `${productCount || 104}+`,
-          roles: ['ADMIN', 'MANAGER', 'CASHIER'],
-        },
         {
           id: 'product-management' as NavTab,
           label: t('nav.productManagement', 'Manajemen Produk'),
@@ -157,18 +164,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: t('nav.categories', 'Kategori & Stok'),
           icon: Layers,
           roles: ['ADMIN', 'CASHIER'],
-        },
-      ],
-    },
-    {
-      id: 'management',
-      title: t('nav.groups.management', 'Manajemen & Analisis'),
-      items: [
-        {
-          id: 'dashboard' as NavTab,
-          label: t('nav.dashboard', 'Dashboard Statistik'),
-          icon: BarChart3,
-          roles: ['ADMIN', 'MANAGER'],
         },
         {
           id: 'cashiers' as NavTab,
@@ -205,6 +200,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: t('nav.loginHistory', 'Histori Login'),
           icon: KeyRound,
           roles: ['ADMIN', 'MANAGER', 'CASHIER'],
+        },
+      ],
+    },
+    {
+      id: 'admin',
+      title: t('nav.groups.admin', 'Admin'),
+      items: [
+        {
+          id: 'tenants' as NavTab,
+          label: t('nav.tenants', 'Manajemen Tenant'),
+          icon: Building2,
+          roles: ['ADMIN'],
         },
       ],
     },

@@ -4,7 +4,7 @@ import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
-import { CashierView } from './components/POS/CashierView';
+import { CartView } from './components/POS/CartView';
 import { ProductCatalogView } from './components/Catalog/ProductCatalogView';
 import { SalesHistoryView } from './components/Sales/SalesHistoryView';
 import { TenantDashboardView } from './components/Dashboard/TenantDashboardView';
@@ -341,7 +341,7 @@ export default function App() {
           )}
 
           {currentTab === 'pos' && (
-            <CashierView
+            <CartView
               products={products}
               onRefreshProducts={fetchProducts}
             />
