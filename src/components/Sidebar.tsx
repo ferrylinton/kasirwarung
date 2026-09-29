@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
+import { useCartStore } from '../store/cartStore';
 
 export type NavTab =
   | 'admin-dashboard'
@@ -59,6 +60,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user, tenant } = useAuthStore();
+  const { savedOrders, getItemCount } = useCartStore();
+
+  const cartItemCount = getItemCount();
+  const savedOrdersCount = savedOrders?.length || 0;
 
   const tenantName = tenant?.name || 'Berkah Jaya';
   const role = user?.role || 'CASHIER';
@@ -100,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     label: string;
     icon: React.ElementType;
     badge?: string;
+    secondaryBadge?: string;
     hasDot?: boolean;
     roles: string[];
   }
@@ -126,7 +132,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'pos' as NavTab,
           label: t('nav.pos', 'Keranjang'),
           icon: ShoppingCart,
-          hasDot: true,
+          badge:
+            cartItemCount > 0
+              ? `${cartItemCount}`
+              : savedOrdersCount > 0
+              ? `${savedOrdersCount} hold`
+              : undefined,
+          secondaryBadge:
+            cartItemCount > 0 && savedOrdersCount > 0
+              ? `${savedOrdersCount} hold`
+              : undefined,
+          hasDot: cartItemCount > 0 || savedOrdersCount > 0,
           roles: ['MANAGER', 'CASHIER'],
         },
         {
@@ -291,39 +307,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {group.items.map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
+              const isPosItem = item.id === 'pos';
 
               return (
                 <button
                   key={item.id}
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer relative ${
                     isActive
                       ? 'btn-theme-primary shadow-sm'
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
                   }`}
-                  title={item.label}
+                  title={
+                    isPosItem && (cartItemCount > 0 || savedOrdersCount > 0)
+                      ? `${item.label} (${cartItemCount} item di keranjang${
+                          savedOrdersCount > 0 ? `, ${savedOrdersCount} pesanan tersimpan` : ''
+                        })`
+                      : item.label
+                  }
                 >
                   <div className="flex items-center gap-3 truncate">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-current' : 'text-slate-400 dark:text-slate-400'}`} />
+                    <div className="relative shrink-0 flex items-center justify-center">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-current' : 'text-slate-400 dark:text-slate-400'}`} />
+                      {/* Collapsed badge overlay for Keranjang */}
+                      {isCollapsed && isPosItem && (cartItemCount > 0 || savedOrdersCount > 0) && (
+                        <span
+                          className={`absolute -top-1.5 -right-2 px-1 min-w-[16px] h-4 rounded-full text-[9px] font-mono font-bold flex items-center justify-center shadow-xs border ${
+                            isActive
+                              ? 'bg-amber-400 text-slate-950 border-amber-300'
+                              : 'bg-emerald-600 text-white border-white dark:border-slate-900'
+                          }`}
+                        >
+                          {cartItemCount > 0 ? cartItemCount : savedOrdersCount}
+                        </span>
+                      )}
+                    </div>
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
 
-                  {!isCollapsed && item.badge && (
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                        isActive ? 'bg-black/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
+                  {!isCollapsed && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {item.badge && (
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold transition-colors ${
+                            isPosItem && cartItemCount > 0
+                              ? isActive
+                                ? 'bg-black/25 text-white ring-1 ring-white/30'
+                                : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60'
+                              : isPosItem && savedOrdersCount > 0
+                              ? isActive
+                                ? 'bg-black/25 text-white ring-1 ring-white/30'
+                                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
+                              : isActive
+                              ? 'bg-black/20 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
 
-                  {item.hasDot && (
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isActive ? 'bg-amber-300' : 'bg-amber-500'
-                      }`}
-                    />
+                      {item.secondaryBadge && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                            isActive
+                              ? 'bg-amber-300/30 text-amber-100 border border-amber-200/40'
+                              : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
+                          }`}
+                          title={`${savedOrdersCount} pesanan tersimpan (hold)`}
+                        >
+                          {item.secondaryBadge}
+                        </span>
+                      )}
+
+                      {item.hasDot && !item.badge && (
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            isActive ? 'bg-amber-300' : 'bg-amber-500'
+                          }`}
+                        />
+                      )}
+                    </div>
                   )}
                 </button>
               );

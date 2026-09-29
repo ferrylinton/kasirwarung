@@ -4,12 +4,8 @@ import {
   Plus,
   Minus,
   X,
-  QrCode,
-  Banknote,
   Printer,
-  User,
   Trash2,
-  CheckCircle2,
   Search,
   ScanBarcode,
   Loader2,
@@ -17,6 +13,8 @@ import {
   Check,
   AlertCircle,
   ArrowRight,
+  Bookmark,
+  Clock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Product, PaymentMethod } from '../../types';
@@ -25,6 +23,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { ReceiptModal } from '../Modals/ReceiptModal';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
+import { SaveOrderModal } from '../Modals/SaveOrderModal';
+import { SavedOrdersListModal } from '../Modals/SavedOrdersListModal';
 
 interface CartViewProps {
   products: Product[];
@@ -54,12 +54,20 @@ export const CartView: React.FC<CartViewProps> = ({
     getChange,
     getItemCount,
     addItem,
+    savedOrders,
+    saveCurrentOrder,
+    loadSavedOrder,
+    deleteSavedOrder,
+    updateSavedOrderNote,
+    setSavedOrders,
   } = useCartStore();
 
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<any>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isSaveOrderModalOpen, setIsSaveOrderModalOpen] = useState(false);
+  const [isSavedOrdersListModalOpen, setIsSavedOrdersListModalOpen] = useState(false);
 
   // Search Bar State inside CartView
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,6 +79,29 @@ export const CartView: React.FC<CartViewProps> = ({
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync saved orders with backend if token exists
+  useEffect(() => {
+    const fetchBackendSavedOrders = async () => {
+      try {
+        const res = await fetch('/api/saved-orders', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.savedOrders && Array.isArray(data.savedOrders)) {
+            setSavedOrders(data.savedOrders);
+          }
+        }
+      } catch (err) {
+        // Fallback to local storage
+      }
+    };
+
+    if (token) {
+      fetchBackendSavedOrders();
+    }
+  }, [token, setSavedOrders]);
 
   // Global F2 keyboard shortcut to focus search input
   useEffect(() => {
@@ -226,10 +257,21 @@ export const CartView: React.FC<CartViewProps> = ({
     }
   };
 
-  // Keyboard Shortcuts: [F8] Uang Pas
+  // Keyboard Shortcuts: [F7] Simpan Pesanan, [F8] Uang Pas, [F9] Pesanan Tersimpan
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F8') {
+      if (e.key === 'F7') {
+        e.preventDefault();
+        if (items.length > 0) {
+          setIsSaveOrderModalOpen(true);
+        } else {
+          addToast({
+            type: 'warning',
+            title: 'Keranjang Kosong',
+            message: 'Pilih produk terlebih dahulu sebelum menyimpan pesanan.',
+          });
+        }
+      } else if (e.key === 'F8') {
         e.preventDefault();
         applyQuickTender('UANG_PAS');
         addToast({
@@ -237,12 +279,15 @@ export const CartView: React.FC<CartViewProps> = ({
           title: 'Tender Uang Pas',
           message: `Nominal disetel sama dengan total belanja (Rp ${getTotal().toLocaleString('id-ID')}).`,
         });
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        setIsSavedOrdersListModalOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [getTotal, applyQuickTender, addToast]);
+  }, [items.length, getTotal, applyQuickTender, addToast]);
 
   const total = getTotal();
   const change = getChange();
@@ -314,223 +359,347 @@ export const CartView: React.FC<CartViewProps> = ({
     }
   };
 
+  const handleSaveOrder = async (note: string) => {
+    const saved = saveCurrentOrder(note, user?.name || 'Kasir');
+    if (saved) {
+      setIsSaveOrderModalOpen(false);
+      addToast({
+        type: 'success',
+        title: 'Pesanan Berhasil Disimpan!',
+        message: `Tiket ${saved.orderNumber} ("${note}") telah ditahan.`,
+        duration: 4000,
+      });
+
+      if (token) {
+        try {
+          await fetch('/api/saved-orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              note,
+              items: saved.items,
+              paymentMethod: saved.paymentMethod,
+              tenderAmount: saved.tenderAmount,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to sync saved order to server:', err);
+        }
+      }
+    }
+  };
+
+  const handleLoadSavedOrder = async (id: string) => {
+    const target = savedOrders.find((so) => so.id === id);
+    const success = loadSavedOrder(id);
+    if (success) {
+      addToast({
+        type: 'info',
+        title: 'Pesanan Dimuat ke Kasir',
+        message: target ? `Tiket ${target.orderNumber} ("${target.note}") siap untuk checkout.` : 'Pesanan telah dimuat ke kasir.',
+        duration: 3500,
+      });
+
+      if (token) {
+        try {
+          await fetch(`/api/saved-orders/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch (err) {
+          console.error('Failed to delete saved order on server:', err);
+        }
+      }
+    }
+  };
+
+  const handleDeleteSavedOrder = async (id: string) => {
+    deleteSavedOrder(id);
+    addToast({
+      type: 'info',
+      title: 'Pesanan Dihapus',
+      message: 'Pesanan tersimpan telah dibatalkan.',
+    });
+
+    if (token) {
+      try {
+        await fetch(`/api/saved-orders/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error('Failed to delete saved order on server:', err);
+      }
+    }
+  };
+
+  const handleUpdateSavedNote = async (id: string, newNote: string) => {
+    updateSavedOrderNote(id, newNote);
+    addToast({
+      type: 'success',
+      title: 'Keterangan Diperbarui',
+      message: `Keterangan pesanan diubah menjadi "${newNote}".`,
+    });
+
+    if (token) {
+      try {
+        await fetch(`/api/saved-orders/${id}/note`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ note: newNote }),
+        });
+      } catch (err) {
+        console.error('Failed to update note on server:', err);
+      }
+    }
+  };
+
+  // Smart dynamic suggestions for tender cash amounts based on total
+  const quickTenderSuggestions = React.useMemo(() => {
+    if (total <= 0) return [50000, 100000, 200000];
+    const setOfTenders = new Set<number>();
+
+    // Nearest higher 10k
+    const next10k = Math.ceil(total / 10000) * 10000;
+    if (next10k > total) setOfTenders.add(next10k);
+
+    // Nearest higher 50k
+    const next50k = Math.ceil(total / 50000) * 50000;
+    if (next50k > total) setOfTenders.add(next50k);
+
+    // Common denominations
+    const denominations = [20000, 50000, 100000, 200000, 500000];
+    for (const d of denominations) {
+      if (d > total) setOfTenders.add(d);
+      if (setOfTenders.size >= 3) break;
+    }
+
+    while (setOfTenders.size < 3) {
+      const highest = Math.max(total, ...Array.from(setOfTenders));
+      setOfTenders.add(highest + 50000);
+    }
+
+    return Array.from(setOfTenders).sort((a, b) => a - b).slice(0, 3);
+  }, [total]);
+
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-100/50 p-2 sm:p-4 lg:p-6">
-      {/* POS Checkout Order Panel */}
-      <div className="w-full">
-        <div className="bg-white rounded-2xl shadow-sm flex flex-col lg:grid lg:grid-cols-12 overflow-hidden">
-          {/* Left Column: Order Header & Cart Items List */}
-          <div className="lg:col-span-7 flex flex-col">
-            {/* Order Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm sm:text-base font-bold text-slate-900">
-                    Nota #TRX-2024-0891
-                  </span>
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                    {items.length} Barang
-                  </span>
-                </div>
-                {items.length > 0 && (
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 dark:bg-slate-950 p-2 sm:p-4 md:p-6 transition-colors">
+      <div className="max-w-4xl mx-auto w-full space-y-4">
+        {/* Single-Column Unified Card */}
+        <div className="bg-white dark:bg-slate-900 overflow-hidden flex flex-col transition-colors">
+          {/* Order Header */}
+          <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+                Nota #TRX-2024-0891
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {savedOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsSavedOrdersListModalOpen(true)}
+                  className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Buka daftar pesanan yang ditahan [F9]"
+                >
+                  <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                  <span>Pesanan Tersimpan ({savedOrders.length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Live Search & Scan Barcode */}
+          <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/60 relative" ref={searchContainerRef}>
+            <div className="relative">
+              {isSearchLoading ? (
+                <Loader2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-primary animate-spin" />
+              ) : (
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              )}
+
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchSelectedIndex(-1);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim().length > 0) {
+                    setIsSearchDropdownOpen(true);
+                  }
+                }}
+                onKeyDown={handleSearchInputKeyDown}
+                placeholder={t('pos.searchPlaceholder', 'Cari sembako / scan barcode (Tekan F2)...')}
+                className="w-full pl-10 pr-20 py-2.5 sm:py-3 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] transition-all shadow-xs"
+              />
+
+              {/* Clear & Barcode Action Buttons inside Input */}
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                {searchQuery && (
                   <button
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Hapus pencarian"
                   >
                     <X className="w-3.5 h-3.5" />
-                    Batal Transaksi
                   </button>
                 )}
-              </div>
-              <div className="text-xs text-slate-500">
-                Kasir: <span className="font-semibold text-slate-700">{user?.name || 'Bu Siti'}</span>
+
+                <button
+                  type="button"
+                  onClick={handleBarcodeClick}
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-slate-400 hover:text-theme-primary hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  title={t('pos.scanBarcode', 'Tekan F2 untuk Scan Barcode')}
+                >
+                  <ScanBarcode className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            {/* Search Bar in CartView */}
-            <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-850/60 relative" ref={searchContainerRef}>
-              <div className="relative">
-                {isSearchLoading ? (
-                  <Loader2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-600 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                )}
-
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setSearchSelectedIndex(-1);
-                  }}
-                  onFocus={() => {
-                    if (searchQuery.trim().length > 0) {
-                      setIsSearchDropdownOpen(true);
-                    }
-                  }}
-                  onKeyDown={handleSearchInputKeyDown}
-                  placeholder={t('pos.searchPlaceholder', 'Cari produk / scan barcode (Tekan F2)...')}
-                  className="w-full pl-9 pr-16 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-600 focus:outline-hidden transition-all shadow-xs"
-                />
-
-                {/* Clear & Barcode Action Buttons inside Input */}
-                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                  {searchQuery && (
+            {/* Live Search Dropdown Panel */}
+            {isSearchDropdownOpen && searchQuery.trim().length > 0 && (
+              <div className="absolute top-full left-3.5 right-3.5 mt-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-50 animate-in fade-in-80 zoom-in-95">
+                {/* Header */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Hasil Pencarian Produk</span>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
+                      {searchResults.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <span className="hidden sm:inline">Navigasi: ↑↓ Enter untuk tambah</span>
                     <button
-                      type="button"
-                      onClick={handleClearSearch}
-                      className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                      title="Hapus pencarian"
+                      onClick={() => setIsSearchDropdownOpen(false)}
+                      className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleBarcodeClick}
-                    className="p-1 rounded-md text-slate-400 dark:text-slate-400 hover:text-emerald-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                    title={t('pos.scanBarcode', 'Tekan F2 untuk Scan Barcode')}
-                  >
-                    <ScanBarcode className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Live Search Dropdown Panel */}
-              {isSearchDropdownOpen && searchQuery.trim().length > 0 && (
-                <div className="absolute top-full left-3.5 right-3.5 mt-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-50 animate-in fade-in-80 zoom-in-95">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">Hasil Pencarian Produk</span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
-                        {searchResults.length}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                      <span className="hidden sm:inline">Navigasi: ↑↓ Enter untuk tambah</span>
-                      <button
-                        onClick={() => setIsSearchDropdownOpen(false)}
-                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
                   </div>
+                </div>
 
-                  {/* Body: Product List or Empty state */}
-                  <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                    {isSearchLoading && searchResults.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
-                        <span>Mencari di database sembako...</span>
+                {/* Body: Product List or Empty state */}
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                  {isSearchLoading && searchResults.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 text-theme-primary animate-spin" />
+                      <span>Mencari di database sembako...</span>
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-6 text-center">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
+                        <AlertCircle className="w-5 h-5" />
                       </div>
-                    ) : searchResults.length === 0 ? (
-                      <div className="p-6 text-center">
-                        <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
-                          <AlertCircle className="w-5 h-5" />
-                        </div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Tidak Ada Produk Ditemukan</p>
-                        <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
-                          Tidak ada sembako yang cocok dengan &quot;{searchQuery}&quot;. Periksa kembali SKU atau nama barang.
-                        </p>
-                      </div>
-                    ) : (
-                      searchResults.map((product, idx) => {
-                        const isSelected = searchSelectedIndex === idx;
-                        const isJustAdded = addedProductId === product.id;
-                        const isOutOfStock = product.stock <= 0;
-                        const isLowStock = !isOutOfStock && product.stock <= product.minStock;
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Tidak Ada Produk Ditemukan</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                        Tidak ada sembako yang cocok dengan &quot;{searchQuery}&quot;. Periksa kembali SKU atau nama barang.
+                      </p>
+                    </div>
+                  ) : (
+                    searchResults.map((product, idx) => {
+                      const isSelected = searchSelectedIndex === idx;
+                      const isJustAdded = addedProductId === product.id;
+                      const isOutOfStock = product.stock <= 0;
+                      const isLowStock = !isOutOfStock && product.stock <= product.minStock;
 
-                        return (
-                          <div
-                            key={product.id}
-                            onClick={() => !isOutOfStock && handleAddToCart(null, product)}
-                            className={`flex items-center justify-between p-3 gap-3 transition-colors cursor-pointer ${
-                              isSelected
-                                ? 'bg-emerald-50 dark:bg-slate-800'
-                                : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
-                                {product.imageUrl ? (
-                                  <img
-                                    src={product.imageUrl}
-                                    alt={product.name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLElement).style.display = 'none';
-                                    }}
-                                  />
-                                ) : (
-                                  <Package className="w-4 h-4 text-slate-400" />
-                                )}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                                    {product.name}
-                                  </span>
-                                  {product.category && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
-                                      {product.category}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 mt-0.5 text-[11px]">
-                                  <span className="font-mono text-slate-400 dark:text-slate-500">{product.sku}</span>
-                                  <span className="text-slate-300 dark:text-slate-700">•</span>
-                                  <span
-                                    className={`font-semibold ${
-                                      isOutOfStock
-                                        ? 'text-rose-500'
-                                        : isLowStock
-                                        ? 'text-amber-500'
-                                        : 'text-emerald-600 dark:text-emerald-400'
-                                    }`}
-                                  >
-                                    {isOutOfStock ? 'Habis' : `Stok: ${product.stock} ${product.unit || 'pcs'}`}
-                                  </span>
-                                </div>
-                              </div>
+                      return (
+                        <div
+                          key={product.id}
+                          onClick={() => !isOutOfStock && handleAddToCart(null, product)}
+                          className={`flex items-center justify-between p-3 gap-3 transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'bg-theme-light'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
+                              {product.imageUrl ? (
+                                <img
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <Package className="w-4 h-4 text-slate-400" />
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div className="text-right">
-                                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                                  Rp {product.price.toLocaleString('id-ID')}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                  {product.name}
+                                </span>
+                                {product.category && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                                    {product.category}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+                                <span className="font-mono text-slate-400 dark:text-slate-500">{product.sku}</span>
+                                <span className="text-slate-300 dark:text-slate-700">•</span>
+                                <span
+                                  className={`font-semibold ${
+                                    isOutOfStock
+                                      ? 'text-rose-500'
+                                      : isLowStock
+                                      ? 'text-amber-500'
+                                      : 'text-theme-primary'
+                                  }`}
+                                >
+                                  {isOutOfStock ? 'Habis' : `Stok: ${product.stock} ${product.unit || 'pcs'}`}
                                 </span>
                               </div>
-
-                              <button
-                                type="button"
-                                disabled={isOutOfStock}
-                                onClick={(e) => handleAddToCart(e, product)}
-                                className={`p-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                                  isJustAdded
-                                    ? 'bg-emerald-600 text-white shadow-xs'
-                                    : isOutOfStock
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50'
-                                    : 'bg-emerald-700 text-white hover:bg-emerald-800 shadow-xs'
-                                }`}
-                                title={isOutOfStock ? 'Stok habis' : 'Tambah ke pesanan kasir'}
-                              >
-                                {isJustAdded ? (
-                                  <Check className="w-4 h-4 stroke-[3]" />
-                                ) : (
-                                  <Plus className="w-4 h-4" />
-                                )}
-                              </button>
                             </div>
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                Rp {product.price.toLocaleString('id-ID')}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isOutOfStock}
+                              onClick={(e) => handleAddToCart(e, product)}
+                              className={`p-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                                isJustAdded
+                                  ? 'btn-theme-primary shadow-xs'
+                                  : isOutOfStock
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50'
+                                  : 'btn-theme-primary shadow-xs'
+                              }`}
+                              title={isOutOfStock ? 'Stok habis' : 'Tambah ke pesanan kasir'}
+                            >
+                              {isJustAdded ? (
+                                <Check className="w-4 h-4 stroke-[3]" />
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
 
                   {/* Footer: View in Catalog action */}
                   {onNavigateToCatalog && searchResults.length > 0 && (
@@ -552,197 +721,218 @@ export const CartView: React.FC<CartViewProps> = ({
               )}
             </div>
 
-            {/* Cart Items List */}
-            <div className="flex-1 min-h-[300px] max-h-[500px] lg:max-h-[calc(100vh-18rem)] overflow-y-auto p-4 sm:p-5 space-y-3 divide-y divide-slate-100">
-              {items.length === 0 ? (
-                <div className="h-full py-16 flex flex-col items-center justify-center text-slate-400">
-                  <Calculator className="w-14 h-14 stroke-1 text-slate-300 mb-2" />
-                  <p className="text-sm font-bold text-slate-700">{t('pos.emptyCartTitle', 'Keranjang transaksi masih kosong')}</p>
-                  <p className="text-xs text-slate-400 mt-1 text-center max-w-xs">
-                    {t('pos.emptyCartDesc', 'Pilih sembako di katalog untuk menambahkan pesanan pelanggan')}
-                  </p>
+          {/* 3. Cart Items List */}
+          <div className="min-h-[220px] max-h-[460px]  overflow-y-auto p-4 sm:p-5 divide-y divide-slate-100 dark:divide-slate-800 transition-colors p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+            {items.length === 0 ? (
+              <div className="py-12 sm:py-16 flex flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-theme-light border border-theme-border text-theme-primary flex items-center justify-center mb-3 shadow-2xs">
+                  <Calculator className="w-7 h-7 stroke-[1.75]" />
                 </div>
-              ) : (
-                items.map((it) => (
-                  <div key={it.product.id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {t('pos.emptyCartTitle', 'Keranjang transaksi masih kosong')}
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
+                  {t('pos.emptyCartDesc', 'Pilih sembako di katalog atau scan barcode di atas untuk menambahkan pesanan.')}
+                </p>
+              </div>
+            ) : (
+              items.map((it) => (
+                <div
+                  key={it.product.id}
+                  className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
+                      {it.product.imageUrl ? (
+                        <img
+                          src={it.product.imageUrl}
+                          alt={it.product.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Package className="w-5 h-5 text-slate-400" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                         {it.product.name}
                       </div>
-                      <div className="text-xs text-slate-500 font-mono">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                         @ Rp {it.product.price.toLocaleString('id-ID')} / {it.product.unit || 'pcs'}
                       </div>
                     </div>
+                  </div>
 
+                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
                     {/* Quantity adjusters */}
-                    <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1 shrink-0">
+                    <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 shrink-0 border border-slate-200/60 dark:border-slate-700/60">
                       <button
+                        type="button"
                         onClick={() => updateQty(it.product.id, it.qty - 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-white text-slate-700 hover:bg-slate-200 transition-colors shadow-xs cursor-pointer"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer"
+                        title="Kurangi kuantitas"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-xs sm:text-sm font-bold font-mono px-2 min-w-[24px] text-center">
+                      <span className="text-xs sm:text-sm font-bold font-mono px-2 min-w-[28px] text-center text-slate-900 dark:text-slate-100">
                         {it.qty}
                       </span>
                       <button
+                        type="button"
                         onClick={() => updateQty(it.product.id, it.qty + 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-white text-slate-700 hover:bg-slate-200 transition-colors shadow-xs cursor-pointer"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer"
+                        title="Tambah kuantitas"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     {/* Subtotal & Delete */}
-                    <div className="text-right flex items-center gap-2.5 shrink-0">
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 font-mono">
+                    <div className="flex items-center gap-2.5">
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 font-mono min-w-[90px] text-right">
                         Rp {it.subtotal.toLocaleString('id-ID')}
                       </div>
                       <button
+                        type="button"
                         onClick={() => removeItem(it.product.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="Hapus Baris"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Hapus barang dari keranjang"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+              ))
+            )}
           </div>
 
-          {/* Right Column: Calculation & Payment Area */}
-          <div className="lg:col-span-5 p-4 sm:p-6 bg-slate-50/70 flex flex-col justify-between space-y-4">
-            <div className="space-y-4">
-              {/* Total Display */}
-              <div className="flex justify-between items-baseline pt-1">
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-slate-600">
-                    Total Belanja ({itemCount} item)
-                  </span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">
-                  Rp {total.toLocaleString('id-ID')}
-                </div>
-              </div>
-
-              {/* Nominal Cepat (Tender Tunai) */}
-              {paymentMethod === 'TUNAI' && (
-                <div className="space-y-2.5 pt-3 border-t border-dashed border-slate-200">
-                  <span className="text-xs font-semibold text-slate-600">Nominal Cepat (Tender Tunai):</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyQuickTender('UANG_PAS')}
-                      className="py-1.5 px-2 text-xs font-semibold bg-white rounded-xl shadow-xs hover:bg-emerald-50 text-slate-800 transition-colors cursor-pointer"
-                    >
-                      Uang Pas [F8]
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyQuickTender(200000)}
-                      className="py-1.5 px-2 text-xs font-semibold bg-white rounded-xl shadow-xs hover:bg-emerald-50 text-slate-800 transition-colors font-mono cursor-pointer"
-                    >
-                      Rp 200.000
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyQuickTender(250000)}
-                      className="py-1.5 px-2 text-xs font-semibold bg-white rounded-xl shadow-xs hover:bg-emerald-50 text-slate-800 transition-colors font-mono cursor-pointer"
-                    >
-                      Rp 250.000
-                    </button>
-                  </div>
-
-                  {/* Diterima & Kembalian */}
-                  <div className="grid grid-cols-2 gap-2.5 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Diterima (Rp)
-                      </label>
-                      <input
-                        type="number"
-                        value={tenderAmount || ''}
-                        onChange={(e) => setTenderAmount(Number(e.target.value))}
-                        className="w-full px-3 py-2 text-sm font-mono font-bold rounded-xl bg-white focus:outline-emerald-500 shadow-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Kembalian
-                      </label>
-                      <div className="px-3 py-2 text-sm font-mono font-extrabold text-emerald-700 bg-emerald-50 rounded-xl">
-                        Rp {change.toLocaleString('id-ID')}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Method Selector */}
+          {/* 4. Calculation & Payment Area (Unified Below Items List in One Column) */}
+     
+            {/* Total Display Box */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
               <div>
-                <span className="block text-xs font-semibold text-slate-600 mb-2">
-                  Metode Pembayaran:
+                <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400">
+                  Total Belanja ({itemCount} item)
                 </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { id: 'TUNAI', label: 'Uang Tunai', icon: Banknote },
-                      { id: 'QRIS', label: 'QRIS', icon: QrCode },
-                    ] as const
-                  ).map((method) => {
-                    const Icon = method.icon;
-                    const isSelected = paymentMethod === method.id;
-                    return (
-                      <button
-                        key={method.id}
-                        type="button"
-                        onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                        className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-emerald-700 text-white shadow-xs'
-                            : 'bg-white text-slate-700 hover:bg-slate-100 shadow-xs'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4 mb-1" />
-                        <span>{method.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              </div>
+              <div className="text-xl  font-black text-theme-primary font-mono text-right">
+                Rp {total.toLocaleString('id-ID')}
               </div>
             </div>
 
-            {/* Action Submit Button & Status */}
-            <div className="space-y-2 pt-2">
+            {/* Nominal Cepat (Tender Tunai) */}
+            {paymentMethod === 'TUNAI' && (
+              <div className="space-y-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-700/80">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Nominal Cepat (Tender Tunai):
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyQuickTender('UANG_PAS')}
+                    className="py-2 px-3 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs hover:border-theme-primary hover:bg-theme-light text-slate-800 dark:text-slate-100 transition-all cursor-pointer text-center"
+                  >
+                    Uang Pas [F8]
+                  </button>
+                  {quickTenderSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => applyQuickTender(suggestion)}
+                      className="py-2 px-3 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs hover:border-theme-primary hover:bg-theme-light text-slate-800 dark:text-slate-100 transition-all font-mono cursor-pointer text-center"
+                    >
+                      Rp {suggestion.toLocaleString('id-ID')}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Diterima & Kembalian */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Uang Diterima (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      value={tenderAmount || ''}
+                      onChange={(e) => setTenderAmount(Number(e.target.value))}
+                      placeholder="Masukkan nominal uang..."
+                      className="w-full px-3.5 py-2.5 text-sm font-mono font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] shadow-2xs transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Kembalian Kasir
+                    </label>
+                    <div className="px-3.5 py-2.5 text-sm font-mono font-black text-theme-text bg-theme-light border border-theme-border rounded-xl flex items-center justify-between shadow-2xs">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Kembali:</span>
+                      <span className="text-base sm:text-lg">Rp {change.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Submit Buttons */}
+            <div className="space-y-2.5 pt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  disabled={items.length === 0}
+                  onClick={() => setIsSaveOrderModalOpen(true)}
+                  className="py-2.5 px-3 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="Simpan pesanan sebelum dibayar"
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>Simpan Pesanan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSavedOrdersListModalOpen(true)}
+                  className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="Lihat daftar pesanan yang ditahan"
+                >
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Tersimpan {savedOrders.length > 0 ? `(${savedOrders.length})` : ''}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={items.length === 0}
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="col-span-2 sm:col-span-1 py-2.5 px-3 rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="Hapus semua barang pesanan di keranjang"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
+                  <span>Hapus Semua Pesanan</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 disabled={items.length === 0 || isProcessingOrder}
                 onClick={handleCheckout}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-sm sm:text-base rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full py-3.5 sm:py-4 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm sm:text-base rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
               >
                 <Printer className="w-5 h-5" />
-                <span>{isProcessingOrder ? t('pos.processingPayment', 'Memproses Transaksi...') : t('pos.payBtn', 'Selesaikan & Cetak Nota')}</span>
+                <span>
+                  {isProcessingOrder
+                    ? t('pos.processingPayment', 'Memproses Transaksi...')
+                    : t('pos.payBtn', 'Selesaikan & Cetak Nota')}
+                </span>
               </button>
 
               {/* Thermal Printer Ready Status */}
-              <div className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5 pt-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Printer Thermal Siap • Format 58mm / 80mm</span>
+              <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 pt-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Printer Thermal Siap • Format Struk 58mm / 80mm</span>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Keyboard Shortcuts Reference Bar at bottom */}
-        <div className="pt-3 pb-2 text-xs text-slate-500 flex flex-wrap items-center justify-center gap-3">
-          <span className="font-semibold text-slate-700 flex items-center gap-1">
-            ⌨️ Shortcut Keyboard:
-          </span>
-          <span className="px-2 py-0.5 bg-white rounded-md font-mono font-bold text-slate-800 shadow-xs">
-            [F8] Uang Pas
-          </span>
+          
         </div>
       </div>
 
@@ -754,21 +944,43 @@ export const CartView: React.FC<CartViewProps> = ({
         onClose={() => setIsReceiptModalOpen(false)}
       />
 
+      {/* Save Order Modal (Hold Order with Note) */}
+      <SaveOrderModal
+        isOpen={isSaveOrderModalOpen}
+        items={items}
+        total={total}
+        cashierName={user?.name || 'Kasir'}
+        onClose={() => setIsSaveOrderModalOpen(false)}
+        onSave={handleSaveOrder}
+      />
+
+      {/* Saved Orders List Modal (Held Orders List) */}
+      <SavedOrdersListModal
+        isOpen={isSavedOrdersListModalOpen}
+        savedOrders={savedOrders}
+        hasActiveCartItems={items.length > 0}
+        onClose={() => setIsSavedOrdersListModalOpen(false)}
+        onLoadOrder={handleLoadSavedOrder}
+        onDeleteOrder={handleDeleteSavedOrder}
+        onUpdateNote={handleUpdateSavedNote}
+      />
+
       {/* Confirmation Modal for Voiding / Cancelling active cart */}
       <ConfirmationModal
         isOpen={showCancelConfirm}
         type="DELETE"
-        title={t('pos.clearCart', 'Batalkan Transaksi Ini?')}
-        description={t('pos.clearCartConfirm', 'Keranjang transaksi kasir akan dikosongkan. Rincian barang yang telah dimasukkan tidak akan tersimpan.')}
-        confirmText={t('pos.clearCart', 'Ya, Batalkan Nota')}
-        cancelText={t('common.cancel', 'Kembali Kasir')}
+        isDestructive={true}
+        title={t('pos.clearCartTitle', 'Hapus Semua Pesanan?')}
+        description={`Apakah Anda yakin ingin menghapus semua barang dari keranjang transaksi? Terdapat ${items.length} macam produk (${itemCount} item) yang akan dikosongkan.`}
+        confirmText="Ya, Hapus Semua Pesanan"
+        cancelText="Batal (Kembali)"
         onConfirm={() => {
           clearCart();
           setShowCancelConfirm(false);
           addToast({
             type: 'info',
-            title: t('pos.clearCart', 'Nota Dibatalkan'),
-            message: 'Keranjang belanja kasir telah dikosongkan.',
+            title: 'Semua Pesanan Dihapus',
+            message: 'Keranjang transaksi kasir telah berhasil dikosongkan.',
           });
         }}
         onCancel={() => setShowCancelConfirm(false)}

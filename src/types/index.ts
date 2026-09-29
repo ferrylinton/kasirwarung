@@ -90,6 +90,20 @@ export interface Order {
   createdAt: string;
 }
 
+export interface SavedOrder {
+  id: string;
+  orderNumber: string;
+  tenantId?: string;
+  note: string; // Keterangan tentang pesanan saat disimpan
+  items: CartItem[];
+  total: number;
+  itemCount: number;
+  paymentMethod: PaymentMethod;
+  tenderAmount: number;
+  cashierName: string;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalOmzet: number;
   kasTunai: number;

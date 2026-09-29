@@ -95,6 +95,7 @@ let tenantsCol: any = new MemoryCollection('tenants');
 let usersCol: any = new MemoryCollection('users');
 let productsCol: any = new MemoryCollection('products');
 let ordersCol: any = new MemoryCollection('orders');
+let savedOrdersCol: any = new MemoryCollection('saved_orders');
 let tokensCol: any = new MemoryCollection('tokens');
 let activityLogsCol: any = new MemoryCollection('activity_logs');
 let loginHistoryCol: any = new MemoryCollection('login_history');
@@ -419,6 +420,7 @@ async function initMongoDB() {
     usersCol = db.collection('users');
     productsCol = db.collection('products');
     ordersCol = db.collection('orders');
+    savedOrdersCol = db.collection('saved_orders');
     tokensCol = db.collection('tokens');
     activityLogsCol = db.collection('activity_logs');
     loginHistoryCol = db.collection('login_history');
@@ -429,6 +431,7 @@ async function initMongoDB() {
     await productsCol.createIndex({ tenantId: 1, sku: 1 }, { unique: true }).catch(() => {});
     await productsCol.createIndex({ tenantId: 1, category: 1 }).catch(() => {});
     await ordersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
+    await savedOrdersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
     await activityLogsCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
     await activityLogsCol.createIndex({ tenantId: 1, module: 1 }).catch(() => {});
     await loginHistoryCol.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
@@ -2687,6 +2690,118 @@ async function startServer() {
         message: `Transaksi ${order.orderNumber} telah diperbarui!`,
         order,
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 12b. Saved Orders (Simpan Pesanan Sebelum Dibayar / Hold Orders)
+  app.get('/api/saved-orders', authenticateToken, async (req: any, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const query: any = {};
+      if (req.user.role !== 'ADMIN' || tenantId) {
+        query.tenantId = tenantId;
+      }
+      const savedOrders = await savedOrdersCol.find(query).sort({ createdAt: -1 }).toArray();
+      res.json({
+        success: true,
+        count: savedOrders.length,
+        savedOrders,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal mengambil pesanan tersimpan: ' + err.message });
+    }
+  });
+
+  app.post('/api/saved-orders', authenticateToken, async (req: any, res) => {
+    try {
+      const { note, items, paymentMethod = 'TUNAI', tenderAmount = 0 } = req.body;
+      if (!note || !note.trim()) {
+        return res.status(400).json({ success: false, message: 'Keterangan pesanan wajib diisi saat menyimpan pesanan.' });
+      }
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, message: 'Tidak ada barang dalam pesanan untuk disimpan.' });
+      }
+
+      const tenantId = req.user.tenantId;
+      const total = items.reduce((sum: number, it: any) => sum + (it.subtotal || (it.price * it.qty) || 0), 0);
+      const itemCount = items.reduce((sum: number, it: any) => sum + (it.qty || 1), 0);
+      const randomSeq = Math.floor(100 + Math.random() * 900);
+      const orderNumber = `HOLD-${randomSeq}`;
+      const id = `saved-${Date.now()}`;
+
+      const savedOrder = {
+        id,
+        orderNumber,
+        tenantId,
+        note: note.trim(),
+        items,
+        total,
+        itemCount,
+        paymentMethod,
+        tenderAmount,
+        cashierName: req.user.name,
+        createdAt: new Date().toISOString(),
+      };
+
+      await savedOrdersCol.insertOne(savedOrder);
+
+      await recordActivityLog({
+        tenantId,
+        userId: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        module: 'CASHIER',
+        action: 'HOLD_ORDER',
+        description: `Menahan pesanan ${orderNumber} (${itemCount} item, Rp ${total.toLocaleString('id-ID')}) dengan keterangan: "${note.trim()}"`,
+        details: { orderNumber, total, itemCount, note: note.trim() },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string),
+      });
+
+      res.status(201).json({
+        success: true,
+        message: `Pesanan sementara ${orderNumber} berhasil disimpan!`,
+        savedOrder,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal menyimpan pesanan: ' + err.message });
+    }
+  });
+
+  app.patch('/api/saved-orders/:id/note', authenticateToken, async (req: any, res) => {
+    try {
+      const { note } = req.body;
+      if (!note || !note.trim()) {
+        return res.status(400).json({ success: false, message: 'Keterangan pesanan tidak boleh kosong.' });
+      }
+      const existing = await savedOrdersCol.findOne({ id: req.params.id });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Pesanan tersimpan tidak ditemukan.' });
+      }
+      if (existing.tenantId !== req.user.tenantId && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+      }
+
+      await savedOrdersCol.updateOne({ id: req.params.id }, { $set: { note: note.trim() } });
+      res.json({ success: true, message: 'Keterangan pesanan tersimpan berhasil diperbarui.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  app.delete('/api/saved-orders/:id', authenticateToken, async (req: any, res) => {
+    try {
+      const existing = await savedOrdersCol.findOne({ id: req.params.id });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Pesanan tersimpan tidak ditemukan.' });
+      }
+      if (existing.tenantId !== req.user.tenantId && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+      }
+
+      await savedOrdersCol.deleteOne({ id: req.params.id });
+      res.json({ success: true, message: 'Pesanan tersimpan telah dihapus.' });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }

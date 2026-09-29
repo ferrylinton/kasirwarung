@@ -609,6 +609,38 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({
                   Kredensial otentikasi sesi kasir (dihapus untuk keamanan toko)
                 </td>
               </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-mono font-semibold text-theme-primary">
+                  kasirwarung_active_cart
+                </td>
+                <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">
+                  Data Keranjang Aktif (JSON)
+                </td>
+                <td className="py-2.5 px-3">
+                  <span className="text-rose-500 font-semibold text-[11px]">
+                    Dihapus Aman Saat Logout
+                  </span>
+                </td>
+                <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                  Penyimpanan sementara keranjang kasir (otomatis bersih saat keluar)
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 px-3 font-mono font-semibold text-theme-primary">
+                  kasirwarung_saved_orders
+                </td>
+                <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">
+                  Pesanan Ditahan / Hold (JSON)
+                </td>
+                <td className="py-2.5 px-3">
+                  <span className="text-rose-500 font-semibold text-[11px]">
+                    Dihapus Aman Saat Logout
+                  </span>
+                </td>
+                <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400">
+                  Daftar pesanan yang ditahan/disimpan kasir (otomatis bersih saat keluar)
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

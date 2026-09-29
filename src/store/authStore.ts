@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User, Tenant } from '../types';
+import { clearCartStoreAndStorage } from './cartStore';
 
 interface TokenMeta {
   jti?: string;
@@ -79,6 +80,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   setAuth: (token: string, user: User, tenant?: Tenant, refreshToken?: string) => {
+    // Clear any previous cart data upon login so session starts with clean cart
+    clearCartStoreAndStorage();
+
     localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, token);
     if (refreshToken) {
       localStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY, refreshToken);
@@ -99,6 +103,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: async (reason?: string) => {
+    // Delete all cart data (active cart & saved orders) from localStorage and store
+    clearCartStoreAndStorage();
+
     const currentToken = get().token;
     if (currentToken) {
       try {
@@ -233,6 +240,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           await get().refreshTokenIfExpiring();
         }
       } else {
+        clearCartStoreAndStorage();
         localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY);
         localStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN_KEY);
         set({ token: null, refreshToken: null, user: null, tenant: null, tokenMeta: null, isLoading: false });
