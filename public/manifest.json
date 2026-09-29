@@ -1,0 +1,17 @@
+{
+  "name": "KasirWarung - Sistem POS Toko Kelontong",
+  "short_name": "KasirWarung",
+  "description": "Aplikasi POS kasir toko kelontong modern dan multi-tenant untuk manajemen inventaris sembako, kasir cepat, laporan penjualan, dan struk kasir.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -233,7 +233,12 @@ export class MemoryCollection<T extends Record<string, any>> {
           const v = val as any;
           // Regex matching: { $regex: '...', $options: 'i' }
           if ('$regex' in v) {
-            const pattern = new RegExp(String(v.$regex), typeof v.$options === 'string' ? v.$options : '');
+            let pattern: RegExp;
+            if (v.$regex instanceof RegExp) {
+              pattern = v.$regex;
+            } else {
+              pattern = new RegExp(String(v.$regex), typeof v.$options === 'string' ? v.$options : '');
+            }
             const itemVal = item[key] !== undefined && item[key] !== null ? String(item[key]) : '';
             if (!pattern.test(itemVal)) return false;
             continue;

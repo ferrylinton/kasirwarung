@@ -2098,6 +2098,52 @@ async function startServer() {
     }
   });
 
+  // Helper to safely escape regex characters in search strings
+  const escapeSearchRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // 4.9. Products: Dedicated Live Search with fuzzy & exact match (Name, SKU, Category, Description)
+  app.get('/api/products/search', authenticateToken, async (req: any, res) => {
+    try {
+      const tenantId = req.query.tenantId || req.user.tenantId;
+      if (!tenantId && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Tenant ID diperlukan' });
+      }
+
+      const q = (req.query.q as string || '').trim();
+      const limit = Math.min(Math.max(parseInt(req.query.limit as string || '10', 10), 1), 50);
+
+      const query: any = {};
+      if (req.user.role !== 'ADMIN' || tenantId) {
+        query.tenantId = tenantId;
+      }
+
+      if (q) {
+        const safeQ = escapeSearchRegex(q);
+        query.$or = [
+          { name: { $regex: safeQ, $options: 'i' } },
+          { sku: { $regex: safeQ, $options: 'i' } },
+          { category: { $regex: safeQ, $options: 'i' } },
+          { description: { $regex: safeQ, $options: 'i' } },
+        ];
+      }
+
+      const products = await productsCol
+        .find(query)
+        .sort({ isPopular: -1, name: 1 })
+        .limit(limit)
+        .toArray();
+
+      res.json({
+        success: true,
+        query: q,
+        count: products.length,
+        products,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal mencari produk: ' + err.message });
+    }
+  });
+
   // 5. Products: List from MongoDB (Scoped by Tenant)
   app.get('/api/products', authenticateToken, async (req: any, res) => {
     try {
@@ -2118,10 +2164,12 @@ async function startServer() {
 
       const q = (req.query.q as string || '').trim();
       if (q) {
+        const safeQ = escapeSearchRegex(q);
         query.$or = [
-          { name: { $regex: q, $options: 'i' } },
-          { sku: { $regex: q, $options: 'i' } },
-          { category: { $regex: q, $options: 'i' } },
+          { name: { $regex: safeQ, $options: 'i' } },
+          { sku: { $regex: safeQ, $options: 'i' } },
+          { category: { $regex: safeQ, $options: 'i' } },
+          { description: { $regex: safeQ, $options: 'i' } },
         ];
       }
 
@@ -3353,6 +3401,9 @@ async function startServer() {
       res.status(500).json({ success: false, message: err.message });
     }
   });
+
+  // Serve public assets
+  app.use(express.static(path.resolve(__dirname, 'public')));
 
   // Mount Vite or Serve Static Files
   if (process.env.NODE_ENV !== 'production') {

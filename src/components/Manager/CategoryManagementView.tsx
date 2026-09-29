@@ -20,6 +20,7 @@ import { Product } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
+import { PageSizeSelect } from './PageSizeSelect';
 
 interface CategoryItem {
   name: string;
@@ -367,20 +368,15 @@ export const CategoryManagementView: React.FC<CategoryManagementViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          <span className="text-xs text-slate-500">Baris per halaman:</span>
-          <select
+          <span className="text-xs text-slate-500 dark:text-slate-400">Baris per halaman:</span>
+          <PageSizeSelect
             value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
+            onChange={(val) => {
+              setPageSize(val);
               setCurrentPage(1);
             }}
-            className="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-emerald-500 focus:outline-hidden"
-          >
-            <option value="5">5 baris</option>
-            <option value="10">10 baris</option>
-            <option value="20">20 baris</option>
-            <option value="50">50 baris</option>
-          </select>
+            options={[5, 10, 20, 50]}
+          />
         </div>
       </div>
 

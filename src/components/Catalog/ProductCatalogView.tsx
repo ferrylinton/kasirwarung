@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import * as Select from '@radix-ui/react-select';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   Package,
   Layers,
@@ -14,7 +16,12 @@ import {
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Check,
   ShieldAlert,
+  SearchX,
+  RotateCcw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Product } from '../../types';
@@ -23,17 +30,22 @@ import { useCartStore } from '../../store/cartStore';
 import { useToastStore } from '../../store/toastStore';
 import { ProductModal } from '../Modals/ProductModal';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
+import { CategorySelect } from './CategorySelect';
 
 interface ProductCatalogViewProps {
   products: Product[];
   onRefreshProducts: () => void;
   onNavigateToPOS: () => void;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }
 
 export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   products,
   onRefreshProducts,
   onNavigateToPOS,
+  searchQuery,
+  onSearchChange,
 }) => {
   const { t, i18n } = useTranslation();
   const { user, tenant, token } = useAuthStore();
@@ -44,11 +56,24 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
   // Filters & State
   const [selectedCategory, setSelectedCategory] = useState('Semua Produk');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchQuery || '');
   const [sortOption, setSortOption] = useState<'terlaris' | 'harga-asc' | 'harga-desc' | 'stok-low'>('terlaris');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
+
+  // Keep search state in sync with external searchQuery prop from Navbar
+  useEffect(() => {
+    if (searchQuery !== undefined && searchQuery !== search) {
+      setSearch(searchQuery);
+    }
+  }, [searchQuery]);
+
+  const handleSearchInputChange = (val: string) => {
+    setSearch(val);
+    // Pencarian di ProductCatalogView bersifat lokal di halaman ini,
+    // tidak mengaktifkan Live Auto-suggest Dropdown di Search Bar Navbar.
+  };
 
   // Reset to page 1 on filter, category, search, or sort change
   useEffect(() => {
@@ -247,35 +272,26 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
         </div>
       </div>
 
-      {/* Category Pills Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {categoryPills.map((cat) => {
-          const isActive = selectedCategory === cat.name;
-          const displayName = cat.name === 'Semua Produk' ? t('catalog.allProducts', 'Semua Produk') : cat.name;
-          return (
-            <button
-              key={cat.name}
-              onClick={() => {
-                setSelectedCategory(cat.name);
-                setCurrentPage(1);
-              }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                isActive
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              <span>{displayName}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  isActive ? 'bg-emerald-700/80 text-white' : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {cat.count}
-              </span>
-            </button>
-          );
-        })}
+      {/* Category Select Navigation (Radix UI Select) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:px-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+          <Layers className="w-4 h-4 text-theme-primary shrink-0" />
+          <span>{t('catalog.tableCategory', 'Kategori')}:</span>
+        </div>
+
+        <CategorySelect
+          selectedCategory={selectedCategory}
+          onSelectCategory={(val) => {
+            setSelectedCategory(val);
+            setCurrentPage(1);
+          }}
+          categories={categoryPills}
+          totalCount={products.length}
+        />
+
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          {t('catalog.showingCount', 'Menampilkan {{count}} produk', { count: filtered.length })}
+        </div>
       </div>
 
       {/* Search, Sort, View Toggle, and Add Button */}
@@ -287,66 +303,279 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
             type="text"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              handleSearchInputChange(e.target.value);
               setCurrentPage(1);
             }}
             placeholder={t('catalog.searchPlaceholder', 'Cari nama barang, barcode, atau SKU...')}
-            className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:border-emerald-500 focus:outline-hidden shadow-xs transition-all"
+            className="w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-theme-primary focus:outline-hidden shadow-xs transition-all"
           />
         </div>
 
         {/* Sort & Action controls */}
         <div className="flex items-center gap-2">
-          {/* Sort Dropdown */}
-          <div className="relative">
-            <select
-              value={sortOption}
-              onChange={(e) => setSortOption(e.target.value as any)}
-              className="pl-3 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-hidden appearance-none cursor-pointer shadow-xs"
+          {/* Radix UI Select for Sort */}
+          <Select.Root
+            value={sortOption}
+            onValueChange={(val) => setSortOption(val as any)}
+          >
+            <Select.Trigger
+              className="inline-flex items-center justify-between gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 focus:outline-hidden focus:ring-2 focus:ring-theme-primary/20 shadow-xs cursor-pointer transition-all"
+              aria-label={t('catalog.sortBy', 'Urutkan')}
             >
-              <option value="terlaris">{t('catalog.sortBestSeller', 'Terlaris (Fast Moving)')}</option>
-              <option value="harga-asc">{t('catalog.sortPriceLow', 'Harga Terendah')}</option>
-              <option value="harga-desc">{t('catalog.sortPriceHigh', 'Harga Tertinggi')}</option>
-              <option value="stok-low">{t('catalog.sortStockLow', 'Stok Menipis Terlebih Dahulu')}</option>
-            </select>
-            <ArrowUpDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
+              <div className="flex items-center gap-1.5 truncate">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                <Select.Value>
+                  <span className="truncate">
+                    {sortOption === 'terlaris' && t('catalog.sortBestSeller', 'Terlaris (Fast Moving)')}
+                    {sortOption === 'harga-asc' && t('catalog.sortPriceLow', 'Harga Terendah')}
+                    {sortOption === 'harga-desc' && t('catalog.sortPriceHigh', 'Harga Tertinggi')}
+                    {sortOption === 'stok-low' && t('catalog.sortStockLow', 'Stok Menipis Terlebih Dahulu')}
+                  </span>
+                </Select.Value>
+              </div>
+              <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </Select.Icon>
+            </Select.Trigger>
 
-          {/* Grid / List toggle */}
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-xs">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg ${viewMode === 'grid' ? 'bg-slate-100 text-slate-900' : 'text-slate-400'}`}
-              title="Grid View"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg ${viewMode === 'list' ? 'bg-slate-100 text-slate-900' : 'text-slate-400'}`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
+            <Select.Portal>
+              <Select.Content
+                className="z-50 min-w-[220px] overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 animate-in fade-in-80 zoom-in-95"
+                position="popper"
+                sideOffset={6}
+              >
+                <Select.Viewport className="p-1">
+                  <Select.Item
+                    value="terlaris"
+                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                  >
+                    <Select.ItemText>
+                      {t('catalog.sortBestSeller', 'Terlaris (Fast Moving)')}
+                    </Select.ItemText>
+                    <Select.ItemIndicator className="text-theme-primary pl-2">
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+
+                  <Select.Item
+                    value="harga-asc"
+                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                  >
+                    <Select.ItemText>
+                      {t('catalog.sortPriceLow', 'Harga Terendah')}
+                    </Select.ItemText>
+                    <Select.ItemIndicator className="text-theme-primary pl-2">
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+
+                  <Select.Item
+                    value="harga-desc"
+                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                  >
+                    <Select.ItemText>
+                      {t('catalog.sortPriceHigh', 'Harga Tertinggi')}
+                    </Select.ItemText>
+                    <Select.ItemIndicator className="text-theme-primary pl-2">
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+
+                  <Select.Item
+                    value="stok-low"
+                    className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                  >
+                    <Select.ItemText>
+                      {t('catalog.sortStockLow', 'Stok Menipis Terlebih Dahulu')}
+                    </Select.ItemText>
+                    <Select.ItemIndicator className="text-theme-primary pl-2">
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                </Select.Viewport>
+              </Select.Content>
+            </Select.Portal>
+          </Select.Root>
+
+          {/* Grid / List toggle with Radix UI Tooltip */}
+          <Tooltip.Provider delayDuration={150}>
+            <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-0.5 shadow-xs">
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    }`}
+                    aria-label={t('catalog.gridView', 'Tampilan Kisi (Grid)')}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    className="z-50 px-2.5 py-1 text-[11px] font-semibold text-white bg-slate-900 dark:bg-slate-800 rounded-lg shadow-xl border border-slate-800 dark:border-slate-700 select-none animate-in fade-in-50 zoom-in-95"
+                    sideOffset={6}
+                  >
+                    <span>{t('catalog.gridView', 'Tampilan Kisi (Grid)')}</span>
+                    <Tooltip.Arrow className="fill-slate-900 dark:fill-slate-800" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    }`}
+                    aria-label={t('catalog.listView', 'Tampilan Daftar (List)')}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    className="z-50 px-2.5 py-1 text-[11px] font-semibold text-white bg-slate-900 dark:bg-slate-800 rounded-lg shadow-xl border border-slate-800 dark:border-slate-700 select-none animate-in fade-in-50 zoom-in-95"
+                    sideOffset={6}
+                  >
+                    <span>{t('catalog.listView', 'Tampilan Daftar (List)')}</span>
+                    <Tooltip.Arrow className="fill-slate-900 dark:fill-slate-800" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </div>
+          </Tooltip.Provider>
         </div>
       </div>
 
       {/* Product Cards Grid matching Image 3 */}
-      {viewMode === 'grid' ? (
+      {filtered.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center shadow-xs flex flex-col items-center justify-center animate-in fade-in-50">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/50 flex items-center justify-center mb-4 shadow-xs">
+            <SearchX className="w-8 h-8" />
+          </div>
+
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+            {search.trim()
+              ? t('catalog.productNotFound', 'Produk Tidak Ditemukan')
+              : selectedCategory !== 'Semua Produk'
+              ? t('catalog.categoryEmpty', 'Kategori Ini Belum Memiliki Produk')
+              : t('catalog.noProductsYet', 'Belum Ada Produk Tersedia')}
+          </h3>
+
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            {search.trim() ? (
+              <>
+                Tidak ada produk sembako yang cocok dengan kata kunci{' '}
+                <span className="font-semibold text-slate-800 dark:text-slate-200 underline decoration-amber-400 underline-offset-2">
+                  &quot;{search}&quot;
+                </span>
+                {selectedCategory !== 'Semua Produk' && (
+                  <> pada kategori <span className="font-semibold text-slate-800 dark:text-slate-200">&quot;{selectedCategory}&quot;</span></>
+                )}. Periksa ejaan nama produk, kode SKU, atau gunakan kata kunci lain.
+              </>
+            ) : selectedCategory !== 'Semua Produk' ? (
+              <>
+                Tidak ada produk terdaftar dalam kategori{' '}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">&quot;{selectedCategory}&quot;</span>. Silakan pilih kategori lain atau tambahkan produk baru.
+              </>
+            ) : (
+              'Katalog produk warung Anda saat ini masih kosong. Silakan tambahkan produk baru untuk memulai transaksi kasir.'
+            )}
+          </p>
+
+          {/* Quick suggestions / keywords if search yielded no results */}
+          {search.trim() && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 max-w-sm">
+              <span className="text-[11px] text-slate-400">Coba kata kunci:</span>
+              {['Beras', 'Minyak', 'Gula', 'Telur', 'Kopi', 'Tepung'].map((keyword) => (
+                <button
+                  key={keyword}
+                  type="button"
+                  onClick={() => {
+                    handleSearchInputChange(keyword);
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-0.5 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 mt-6">
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleSearchInputChange('');
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Pencarian</span>
+              </button>
+            )}
+
+            {selectedCategory !== 'Semua Produk' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('Semua Produk');
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Tampilkan Semua Kategori</span>
+              </button>
+            )}
+
+            {isManager && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProduct(null);
+                  setIsProductModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-theme-primary hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Produk Baru</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {displayedProducts.map((p) => {
+          {displayedProducts.map((p, idx) => {
             const isLowStock = p.stock <= p.minStock && p.stock > 0;
             const isOutOfStock = p.stock <= 0;
+            const isEven = idx % 2 === 1;
 
             return (
               <div
                 key={p.id}
-                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md hover:border-emerald-500/80 transition-all flex flex-col justify-between p-3.5 relative group"
+                className={`rounded-2xl border transition-all flex flex-col justify-between p-3.5 relative group shadow-xs hover:shadow-md hover:border-theme-primary ${
+                  isEven
+                    ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/90 dark:border-slate-800'
+                    : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800'
+                }`}
               >
                 {/* Card Top: Category Pill & 3-Dots Action Menu */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-semibold text-theme-text bg-theme-light border border-theme-border px-2 py-0.5 rounded-md">
                     {p.category}
                   </span>
 
@@ -357,7 +586,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                           e.stopPropagation();
                           setActiveMenuId(activeMenuId === p.id ? null : p.id);
                         }}
-                        className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                        className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
@@ -365,7 +594,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                       {/* Dropdown Menu */}
                       {activeMenuId === p.id && (
                         <div
-                          className="absolute right-0 top-6 w-36 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-20"
+                          className="absolute right-0 top-6 w-36 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-100 dark:border-slate-800 py-1 z-20"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
@@ -374,7 +603,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                               setEditingProduct(p);
                               setIsProductModalOpen(true);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 font-medium"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
                           >
                             <Edit2 className="w-3.5 h-3.5 text-amber-600" />
                             <span>Ubah Data</span>
@@ -384,7 +613,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                               setActiveMenuId(null);
                               setDeletingProduct(p);
                             }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 font-medium"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Hapus Produk</span>
@@ -396,7 +625,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                 </div>
 
                 {/* Product Photo */}
-                <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-slate-50 mb-3 border border-slate-100">
+                <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800/80 mb-3 border border-slate-100 dark:border-slate-800">
                   <img
                     src={p.imageUrl}
                     alt={p.name}
@@ -407,14 +636,14 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
                 {/* SKU and Stock Indicator */}
                 <div className="flex items-center justify-between text-[11px] mb-1 font-mono">
-                  <span className="text-slate-400">SKU: {p.sku}</span>
+                  <span className="text-slate-400 dark:text-slate-500">SKU: {p.sku}</span>
                   <span
                     className={`font-semibold flex items-center gap-1 ${
                       isOutOfStock
-                        ? 'text-rose-600'
+                        ? 'text-rose-600 dark:text-rose-400'
                         : isLowStock
-                        ? 'text-rose-600 font-bold'
-                        : 'text-slate-600'
+                        ? 'text-rose-600 dark:text-rose-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     <span
@@ -432,19 +661,19 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
                 {/* Name & Description */}
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-theme-primary transition-colors">
                     {p.name}
                   </h3>
-                  <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 mb-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 mb-3">
                     {p.description || `Kemasan per ${p.unit} segar`}
                   </p>
                 </div>
 
                 {/* Bottom: Harga Ecer & + Kasir Button */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-auto">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 mt-auto">
                   <div>
-                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Harga Ecer</span>
-                    <span className="text-sm font-black text-slate-900 font-mono">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Harga Ecer</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-slate-100 font-mono">
                       Rp {p.price.toLocaleString('id-ID')}
                     </span>
                   </div>
@@ -452,10 +681,10 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                   <button
                     onClick={() => handleAddToCart(p)}
                     disabled={isOutOfStock}
-                    className="flex items-center gap-1 py-1.5 px-3 bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-40"
+                    className="min-w-24 flex items-center justify-center gap-1 bg-theme-light hover:btn-theme-primary text-theme-text hover:text-white border border-theme-border rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
                   >
                     <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>+ Kasir</span>
+                    <span className="text-2xl">+</span>
                   </button>
                 </div>
               </div>
@@ -463,101 +692,130 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
           })}
         </div>
       ) : (
-        /* List View */
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+        /* List View with alternating odd/even theme-aware backgrounds */
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+            <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
               <tr>
-                <th className="py-3 px-4">Produk</th>
-                <th className="py-3 px-4">Kategori</th>
-                <th className="py-3 px-4">SKU</th>
-                <th className="py-3 px-4">Stok</th>
-                <th className="py-3 px-4">Harga Ecer</th>
-                <th className="py-3 px-4 text-right">Aksi</th>
+                <th className="py-3 px-4">{t('catalog.tableProduct', 'Produk')}</th>
+                <th className="py-3 px-4">{t('catalog.tableCategory', 'Kategori')}</th>
+                <th className="py-3 px-4">{t('catalog.tableBarcode', 'SKU')}</th>
+                <th className="py-3 px-4">{t('catalog.tableStock', 'Stok')}</th>
+                <th className="py-3 px-4">{t('catalog.tableSellingPrice', 'Harga Ecer')}</th>
+                <th className="py-3 px-4 text-right">{t('catalog.tableActions', 'Aksi')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {displayedProducts.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 px-4 flex items-center gap-3">
-                    <img src={p.imageUrl} alt="" className="w-10 h-10 rounded-lg object-cover bg-slate-100" />
-                    <div>
-                      <div className="font-bold text-slate-900">{p.name}</div>
-                      <div className="text-[11px] text-slate-400 line-clamp-1">{p.description}</div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-600">{p.category}</td>
-                  <td className="py-3 px-4 font-mono text-slate-500">{p.sku}</td>
-                  <td className="py-3 px-4">
-                    <span className={p.stock <= p.minStock ? 'text-rose-600 font-bold' : 'text-slate-800'}>
-                      {p.stock} {p.unit}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 font-bold font-mono text-slate-900">
-                    Rp {p.price.toLocaleString('id-ID')}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => handleAddToCart(p)}
-                      className="px-3 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white rounded-lg font-bold transition-colors inline-flex items-center gap-1"
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>+ Kasir</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {displayedProducts.map((p, idx) => {
+                const isEven = idx % 2 === 1;
+                return (
+                  <tr
+                    key={p.id}
+                    className={`transition-colors ${
+                      isEven
+                        ? 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-theme-light/40 dark:hover:bg-theme-light/20'
+                        : 'bg-white dark:bg-slate-900 hover:bg-theme-light/40 dark:hover:bg-theme-light/20'
+                    }`}
+                  >
+                    <td className="py-3 px-4 flex items-center gap-3">
+                      <img
+                        src={p.imageUrl}
+                        alt=""
+                        className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 shrink-0"
+                      />
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{p.name}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">{p.description}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-theme-light text-theme-text border border-theme-border">
+                        {p.category}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">{p.sku}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={
+                          p.stock <= 0
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : p.stock <= p.minStock
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : 'text-slate-800 dark:text-slate-200'
+                        }
+                      >
+                        {p.stock} {p.unit}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 font-bold font-mono text-slate-900 dark:text-slate-100">
+                      Rp {p.price.toLocaleString('id-ID')}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => handleAddToCart(p)}
+                        disabled={p.stock <= 0}
+                        className="px-3 py-1.5 bg-theme-light hover:btn-theme-primary text-theme-text hover:text-white border border-theme-border rounded-xl font-bold transition-all inline-flex items-center gap-1 shadow-2xs disabled:opacity-40 cursor-pointer"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span>+ Kasir</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {/* Pagination Footer matching Image 3 */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200">
-        <div className="text-xs text-slate-500">
-          Menampilkan <span className="font-bold text-slate-800">{displayedProducts.length}</span> dari{' '}
-          <span className="font-bold text-slate-800">{filtered.length}</span> Produk • Halaman{' '}
-          <span className="font-bold text-slate-800">{currentPage}</span> dari {totalPages}
+      {filtered.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Menampilkan <span className="font-bold text-slate-800 dark:text-slate-200">{displayedProducts.length}</span> dari{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{filtered.length}</span> Produk • Halaman{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{currentPage}</span> dari {totalPages}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+              const pageNum = i + 1;
+              const isCurrent = pageNum === currentPage;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                    isCurrent
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            {totalPages > 5 && <span className="text-slate-400 px-1">...</span>}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-            const pageNum = i + 1;
-            const isCurrent = pageNum === currentPage;
-            return (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                  isCurrent
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
-
-          {totalPages > 5 && <span className="text-slate-400 px-1">...</span>}
-
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Modal: Tambah & Ubah Produk */}
       <ProductModal

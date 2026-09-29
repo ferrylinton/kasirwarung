@@ -35,6 +35,11 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Saat berpindah halaman/tab, reset query pencarian Navbar
+  useEffect(() => {
+    setSearchQuery('');
+  }, [currentTab]);
+
   // Auth screen mode when not logged in
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'verify'>('login');
   const [verifyToken, setVerifyToken] = useState('');
@@ -289,12 +294,15 @@ export default function App() {
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Top Navigation Bar */}
         <Navbar
+          currentTab={currentTab}
           onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           onNavigateToPOS={() => setCurrentTab('pos')}
           onNavigateToProfile={() => setCurrentTab('profile')}
           onNavigateToConfiguration={() => setCurrentTab('configuration')}
+          onNavigateToCatalog={() => setCurrentTab('catalog')}
           onSearchChange={(q) => setSearchQuery(q)}
           searchQuery={searchQuery}
+          showSearchBar={currentTab !== 'catalog'}
         />
 
         {/* Main Content Viewport */}
@@ -304,6 +312,7 @@ export default function App() {
               products={products}
               onRefreshProducts={fetchProducts}
               onNavigateToPOS={() => setCurrentTab('pos')}
+              searchQuery={searchQuery}
             />
           )}
 

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#064e3b" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="64" height="64" rx="16" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Inner Border Highlight -->
+  <rect x="1" y="1" width="62" height="62" rx="15" stroke="#34d399" stroke-width="1.5" stroke-opacity="0.4"/>
+
+  <!-- Store Awning Canopy & POS Register Symbol -->
+  <g filter="url(#shadow)">
+    <!-- Store Awning Roof -->
+    <path d="M14 18C14 16.8954 14.8954 16 16 16H48C49.1046 16 50 16.8954 50 18L47.5 26.5C47.2 27.5 46.2 28 45.2 28H18.8C17.8 28 16.8 27.5 16.5 26.5L14 18Z" fill="#FFFFFF"/>
+    
+    <!-- Emerald Awning Stripes -->
+    <path d="M21 16L20 28H26L27 16H21Z" fill="#059669"/>
+    <path d="M37 16L38 28H44L43 16H37Z" fill="#059669"/>
+
+    <!-- Shop / POS Body -->
+    <rect x="17" y="28" width="30" height="19" rx="3.5" fill="#FFFFFF"/>
+    
+    <!-- POS Screen Display -->
+    <rect x="21" y="32" width="22" height="7" rx="2" fill="#ECFDF5"/>
+    <rect x="24" y="34.5" width="8" height="2" rx="1" fill="#059669"/>
+    <circle cx="39" cy="35.5" r="1.5" fill="#10B981"/>
+
+    <!-- Cash Drawer & Keypad Accent -->
+    <rect x="21" y="41.5" width="22" height="2" rx="1" fill="#059669"/>
+    
+    <!-- Base Tray -->
+    <path d="M15 47H49C50.1 47 51 47.9 51 49V49C51 50.1 50.1 51 49 51H15C13.9 51 13 50.1 13 49V49C13 47.9 13.9 47 15 47Z" fill="#FFFFFF"/>
+  </g>
+</svg>

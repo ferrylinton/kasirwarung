@@ -22,6 +22,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useToastStore } from '../../store/toastStore';
 import { ProductModal } from '../Modals/ProductModal';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
+import { CategorySelect } from '../Catalog/CategorySelect';
+import { PageSizeSelect } from './PageSizeSelect';
+import { StockStatusSelect, StockFilterType } from './StockStatusSelect';
 
 interface ProductManagementViewProps {
   products: Product[];
@@ -56,13 +59,44 @@ export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
-  // Distinct categories from products
-  const categoriesList = useMemo(() => {
-    const set = new Set<string>();
+  // Distinct categories from products with counts for CategorySelect
+  const categoryPills = useMemo(() => {
+    const categoriesMap: { [cat: string]: number } = {};
     products.forEach((p) => {
-      if (p.category) set.add(p.category);
+      if (p.category) {
+        categoriesMap[p.category] = (categoriesMap[p.category] || 0) + 1;
+      }
     });
-    return Array.from(set).sort();
+
+    return [
+      { name: 'Semua', count: products.length },
+      ...Object.keys(categoriesMap).sort().map((cat) => ({
+        name: cat,
+        count: categoriesMap[cat],
+      })),
+    ];
+  }, [products]);
+
+  // Stock status counts for Stock Filter
+  const stockCounts = useMemo(() => {
+    let available = 0;
+    let low = 0;
+    let empty = 0;
+    products.forEach((p) => {
+      if (p.stock <= 0) {
+        empty++;
+      } else if (p.stock <= p.minStock) {
+        low++;
+      } else {
+        available++;
+      }
+    });
+    return {
+      all: products.length,
+      available,
+      low,
+      empty,
+    };
   }, [products]);
 
   // Filtered & Sorted products
@@ -307,57 +341,42 @@ export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
                 setCurrentPage(1);
               }}
               placeholder="Cari berdasarkan nama sembako, kode SKU, atau kategori..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:outline-hidden"
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-theme-primary focus:outline-hidden shadow-xs transition-all"
             />
           </div>
 
           {/* Category Filter */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <CategorySelect
+              selectedCategory={selectedCategory}
+              onSelectCategory={(val) => {
+                setSelectedCategory(val);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-emerald-500 focus:outline-hidden"
-            >
-              <option value="Semua">Semua Kategori ({products.length})</option>
-              {categoriesList.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              categories={categoryPills}
+              totalCount={products.length}
+              className="w-full md:w-60"
+            />
 
-            {/* Stock Filter */}
-            <select
+            {/* Stock Filter (StockStatusSelect Component) */}
+            <StockStatusSelect
               value={stockFilter}
-              onChange={(e) => {
-                setStockFilter(e.target.value as any);
+              onChange={(val) => {
+                setStockFilter(val);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-emerald-500 focus:outline-hidden"
-            >
-              <option value="all">Semua Status Stok</option>
-              <option value="available">Stok Aman</option>
-              <option value="low">Menipis (≤ Batas Minimal)</option>
-              <option value="empty">Habis (0)</option>
-            </select>
+              stockCounts={stockCounts}
+            />
 
-            {/* Page Size */}
-            <select
+            {/* Page Size (Radix UI Select) */}
+            <PageSizeSelect
               value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+              onChange={(val) => {
+                setPageSize(val);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-emerald-500 focus:outline-hidden"
-            >
-              <option value="5">5 baris</option>
-              <option value="10">10 baris</option>
-              <option value="20">20 baris</option>
-              <option value="50">50 baris</option>
-            </select>
+              options={[5, 10, 20, 50]}
+            />
           </div>
         </div>
       </div>
