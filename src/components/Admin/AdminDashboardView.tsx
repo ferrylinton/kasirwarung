@@ -18,7 +18,9 @@ import {
   AlertCircle,
   Layers,
   ChevronDown,
+  Check,
 } from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
 import { AdminDashboardData, Tenant } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 
@@ -28,7 +30,7 @@ type DatePreset = 'today' | 'week' | 'month' | '3months' | 'custom';
 
 export const AdminDashboardView: React.FC = () => {
   const { t } = useTranslation();
-  const { token } = useAuthStore();
+  const { token, user, refreshTokenIfExpiring } = useAuthStore();
 
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -106,7 +108,8 @@ export const AdminDashboardView: React.FC = () => {
   // Fetch Admin Dashboard Data
   const fetchDashboardData = useCallback(
     async (presetToUse: DatePreset = activePreset, customVal: DatePickerValue = selectedDate) => {
-      if (!token) return;
+      const activeToken = useAuthStore.getState().token || token;
+      if (!activeToken) return;
 
       try {
         setLoading(true);
@@ -120,15 +123,35 @@ export const AdminDashboardView: React.FC = () => {
           preset: presetToUse,
         });
 
-        const res = await fetch(`/api/admin/dashboard?${params.toString()}`, {
+        let res = await fetch(`/api/admin/dashboard?${params.toString()}`, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${activeToken}`,
           },
         });
 
+        // Attempt automatic refresh if session expired or revoked
+        if (res.status === 401 || res.status === 403) {
+          try {
+            await refreshTokenIfExpiring();
+            const freshToken = useAuthStore.getState().token;
+            if (freshToken && freshToken !== activeToken) {
+              res = await fetch(`/api/admin/dashboard?${params.toString()}`, {
+                headers: {
+                  Authorization: `Bearer ${freshToken}`,
+                },
+              });
+            }
+          } catch {
+            // continue with original response evaluation
+          }
+        }
+
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'Gagal memuat analitik dashboard admin');
+          const fallbackMsg = res.status === 403
+            ? 'Akses ditolak. Anda memerlukan hak akses Administrator.'
+            : 'Gagal memuat analitik dashboard admin';
+          throw new Error(errData.message || fallbackMsg);
         }
 
         const resJson = await res.json();
@@ -140,13 +163,15 @@ export const AdminDashboardView: React.FC = () => {
         setLoading(false);
       }
     },
-    [token, selectedTenantId, activePreset, selectedDate]
+    [token, selectedTenantId, activePreset, selectedDate, refreshTokenIfExpiring]
   );
 
   // Initial fetch and on dependencies change
   useEffect(() => {
-    fetchDashboardData(activePreset, selectedDate);
-  }, [selectedTenantId, activePreset]);
+    if (token) {
+      fetchDashboardData(activePreset, selectedDate);
+    }
+  }, [token, selectedTenantId, activePreset]);
 
   // Handle Preset Button Click
   const handleSelectPreset = (preset: DatePreset) => {
@@ -198,6 +223,22 @@ export const AdminDashboardView: React.FC = () => {
   };
 
   const maxProductQty = data?.top10Products?.[0]?.totalQty || 1;
+
+  if (user && user.role !== 'ADMIN') {
+    return (
+      <div className="p-8 max-w-xl mx-auto text-center space-y-4 pt-16">
+        <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          Akses Khusus Administrator
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Halaman Dashboard Admin Global hanya dapat diakses oleh pengguna dengan peran Administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -295,21 +336,68 @@ export const AdminDashboardView: React.FC = () => {
               />
             </div>
 
-            {/* Filter per Tenant */}
-            <div className="relative">
-              <select
+            {/* Filter per Tenant using Radix UI Select */}
+            <div className="min-w-[190px]">
+              <Select.Root
                 value={selectedTenantId}
-                onChange={(e) => setSelectedTenantId(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white focus:outline-hidden text-slate-800 dark:text-slate-100 cursor-pointer shadow-2xs"
+                onValueChange={(val: string) => setSelectedTenantId(val)}
               >
-                <option value="ALL">🏪 Semua Tenant Warung</option>
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Select.Trigger
+                  className="w-full inline-flex items-center justify-between px-3 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition cursor-pointer shadow-2xs gap-2"
+                  aria-label="Filter per Tenant"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Store className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <Select.Value>
+                      <span className="truncate">
+                        {selectedTenantId === 'ALL'
+                          ? '🏪 Semua Tenant Warung'
+                          : tenants.find((t) => t.id === selectedTenantId)?.name || selectedTenantId}
+                      </span>
+                    </Select.Value>
+                  </div>
+                  <Select.Icon className="text-slate-400 shrink-0 ml-1">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Select.Icon>
+                </Select.Trigger>
+
+                <Select.Portal>
+                  <Select.Content
+                    className="z-50 min-w-[200px] overflow-hidden bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl p-1 animate-in fade-in-80 zoom-in-95"
+                    position="popper"
+                    sideOffset={6}
+                  >
+                    <Select.Viewport className="p-1 space-y-0.5">
+                      <Select.Item
+                        value="ALL"
+                        className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-800 dark:data-[highlighted]:text-emerald-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>🏪 Semua Tenant Warung</span>
+                        </div>
+                        <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      {tenants.map((t) => (
+                        <Select.Item
+                          key={t.id}
+                          value={t.id}
+                          className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-800 dark:data-[highlighted]:text-emerald-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{t.name}</span>
+                          </div>
+                          <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
             </div>
           </div>
         </div>
@@ -337,9 +425,18 @@ export const AdminDashboardView: React.FC = () => {
 
       {/* Error state */}
       {error && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-300 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <span>{error}</span>
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-700 dark:text-rose-300 text-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
+            <span className="font-medium">{error}</span>
+          </div>
+          <button
+            onClick={() => fetchDashboardData()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold self-start sm:self-auto cursor-pointer transition shadow-xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Coba Lagi
+          </button>
         </div>
       )}
 
