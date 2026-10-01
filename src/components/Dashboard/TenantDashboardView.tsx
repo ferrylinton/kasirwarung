@@ -10,7 +10,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
 } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '../../stores/authStore';
 import { DashboardStats } from '../../types';
 
 export const TenantDashboardView: React.FC = () => {

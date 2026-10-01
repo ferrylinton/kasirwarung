@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { MailCheck, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '../../store/authStore';
-import { useToastStore } from '../../store/toastStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useToastStore } from '../../stores/toastStore';
 import { LanguageSelector } from '../LanguageSelector';
 import { ThemeToggle } from '../Theme/ThemeToggle';
 

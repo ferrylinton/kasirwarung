@@ -25,9 +25,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Product } from '../../types';
-import { useAuthStore } from '../../store/authStore';
-import { useCartStore } from '../../store/cartStore';
-import { useToastStore } from '../../store/toastStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useCartStore } from '../../stores/cartStore';
+import { useToastStore } from '../../stores/toastStore';
 import { ProductModal } from '../Modals/ProductModal';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
 import { CategorySelect } from './CategorySelect';

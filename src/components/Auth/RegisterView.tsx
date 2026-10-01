@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { z } from 'zod';
 import { Store, User, Mail, Lock, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useToastStore } from '../../store/toastStore';
+import { useToastStore } from '../../stores/toastStore';
 import { LanguageSelector } from '../LanguageSelector';
 import { ThemeToggle } from '../Theme/ThemeToggle';
 

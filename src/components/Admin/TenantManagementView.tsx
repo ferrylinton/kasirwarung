@@ -15,8 +15,8 @@ import {
   X,
   FileText,
 } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
-import { useToastStore } from '../../store/toastStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useToastStore } from '../../stores/toastStore';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
 import { Tenant, TenantDeactivationRequest } from '../../types';
 

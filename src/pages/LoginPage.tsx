@@ -3,14 +3,17 @@ import { LoginView } from '../components/Auth/LoginView.tsx';
 
 export interface LoginPageProps {
   onSwitchToRegister: () => void;
-  onLoginSuccess?: () => void;
+  onSwitchToVerify?: (token?: string) => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister, onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({
+  onSwitchToRegister,
+  onSwitchToVerify = () => {},
+}) => {
   return (
     <LoginView
       onSwitchToRegister={onSwitchToRegister}
-      onLoginSuccess={onLoginSuccess}
+      onSwitchToVerify={onSwitchToVerify}
     />
   );
 };

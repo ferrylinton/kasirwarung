@@ -1,4 +1,5 @@
 export type PaymentMethod = 'TUNAI' | 'QRIS' | 'TRANSFER' | 'KASBON';
+export type PaymentStatus = 'LUNAS' | 'BELUM_LUNAS';
 
 export interface OrderItem {
   productId: string;
@@ -26,12 +27,13 @@ export interface Order {
 export interface CartItem {
   product: import('./product.ts').Product;
   qty: number;
+  subtotal: number;
 }
 
 export interface SavedOrder {
   id: string;
   orderNumber: string;
-  tenantId: string;
+  tenantId?: string;
   note: string;
   items: CartItem[];
   total: number;

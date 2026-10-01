@@ -10,7 +10,6 @@ import {
   Download,
   Lock,
   Wallet,
-  QrCode,
   Search,
   Calendar,
   CalendarDays,
@@ -187,8 +186,8 @@ export const SalesHistoryView: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* 3 Financial Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 2 Financial Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card 1: Total Omzet */}
         <div className="bg-linear-to-br from-emerald-800 to-emerald-950 text-white p-5 rounded-2xl shadow-md relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-start justify-between">
@@ -230,27 +229,6 @@ export const SalesHistoryView: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
             <span>{tunaiCount} Transaksi Tunai</span>
             <span className="font-bold font-mono text-emerald-600">{tunaiPercentage}%</span>
-          </div>
-        </div>
-
-        {/* Card 3: QRIS */}
-        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Pembayaran QRIS
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-              <QrCode className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="my-2">
-            <div className="text-2xl font-black font-mono text-slate-900 tracking-tight">
-              Rp {qrisTransfer.toLocaleString('id-ID')}
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-            <span>{nonTunaiCount} Transaksi QRIS</span>
-            <span className="font-bold font-mono text-teal-600">{nonTunaiPercentage}%</span>
           </div>
         </div>
       </div>

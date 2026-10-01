@@ -3,12 +3,12 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dns from 'node:dns/promises';
-import { PORT } from './server/config/env.ts';
-import { connectDB } from './server/config/db.ts';
-import { i18nMiddleware, initBackendI18n } from './server/i18n.ts';
-import { globalTokenBucket } from './server/middlewares/rateLimiter.ts';
-import { errorHandler } from './server/middlewares/errorHandler.ts';
-import apiRouter from './server/routes/index.ts';
+import { PORT } from './backend/config/env.ts';
+import { connectDB } from './backend/config/db.ts';
+import { i18nMiddleware, initBackendI18n } from './backend/i18n.ts';
+import { globalTokenBucket } from './backend/middlewares/rateLimiter.ts';
+import { errorHandler } from './backend/middlewares/errorHandler.ts';
+import apiRouter from './backend/routes/index.ts';
 
 try {
   dns.setServers(['1.1.1.1', '8.8.8.8']);

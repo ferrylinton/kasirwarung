@@ -1,17 +1,15 @@
 import { useThemeStore } from '../store/themeStore';
 
 export function useTheme() {
-  const { theme, accent, setTheme, setAccent, toggleTheme } = useThemeStore();
-
-  const isDark = theme === 'dark';
+  const { accent, isDark, setAccent, toggleDark, setDark } = useThemeStore();
 
   return {
-    theme,
     accent,
     isDark,
-    setTheme,
+    theme: isDark ? ('dark' as const) : ('light' as const),
     setAccent,
-    toggleTheme,
+    toggleTheme: toggleDark,
+    setDark,
   };
 }
 

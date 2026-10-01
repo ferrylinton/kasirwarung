@@ -1,36 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu } from 'lucide-react';
-import { useAuthStore } from './store/authStore';
-import { useToastStore } from './store/toastStore';
-import { Sidebar, NavTab } from './components/Sidebar';
-import { CartView } from './components/POS/CartView';
-import { ProductCatalogView } from './components/Catalog/ProductCatalogView';
-import { SalesHistoryView } from './components/Sales/SalesHistoryView';
-import { TenantDashboardView } from './components/Dashboard/TenantDashboardView';
-import { CashierManagementView } from './components/Manager/CashierManagementView';
-import { ProductManagementView } from './components/Manager/ProductManagementView';
-import { CategoryManagementView } from './components/Manager/CategoryManagementView';
-import { TenantManagementView } from './components/Admin/TenantManagementView';
-import { AdminDashboardView } from './components/Admin/AdminDashboardView';
-import { UserProfileView } from './components/Profile/UserProfileView';
-import { ConfigurationView } from './components/Settings/ConfigurationView';
-import { ActivityLogView } from './components/Manager/ActivityLogView';
-import { LoginHistoryView } from './components/Auth/LoginHistoryView';
-import { LoginView } from './components/Auth/LoginView';
-import { RegisterView } from './components/Auth/RegisterView';
-import { VerifyEmailView } from './components/Auth/VerifyEmailView';
-import { ToastContainer } from './components/ToastContainer';
+import { NavTab } from './components/Sidebar';
+import { RootLayout, AuthLayout } from './layouts';
 import { ConfirmationModal } from './components/Modals/ConfirmationModal';
 import { Product } from './types';
-import { TenantInfoView } from './components/Manager/TenantInfoView';
+import { useAuth } from './hooks/useAuth';
+import { useToast } from './hooks/useToast';
+import { productService } from './services/productService';
+import { authService } from './services/authService';
+
+// Route-level container components (pages)
+import {
+  ProductCatalogPage,
+  ProductManagementPage,
+  CategoryManagementPage,
+  POSPage,
+  SalesHistoryPage,
+  AdminDashboardPage,
+  TenantDashboardPage,
+  CashierManagementPage,
+  ActivityLogPage,
+  LoginHistoryPage,
+  TenantManagementPage,
+  TenantInfoPage,
+  ConfigurationPage,
+  UserProfilePage,
+  LoginPage,
+  RegisterPage,
+  VerifyEmailPage,
+} from './pages';
 
 export default function App() {
   const { t } = useTranslation();
-  const { user, token, logout, refreshMe, refreshTokenIfExpiring, idleTimeoutMinutes, setIdleTimeoutMinutes } = useAuthStore();
-  const { addToast } = useToastStore();
+  const { user, token, logout, refreshMe, refreshTokenIfExpiring, idleTimeoutMinutes, setIdleTimeoutMinutes } = useAuth();
+  const { addToast } = useToast();
 
-  // Navigation & UI state - ADMIN defaults to admin-dashboard
+  // Navigation state - ADMIN defaults to admin-dashboard
   const [currentTab, setCurrentTab] = useState<NavTab>(() => {
     try {
       const stored = localStorage.getItem('auth_user');
@@ -41,18 +46,17 @@ export default function App() {
     } catch {}
     return 'catalog';
   });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Saat role ADMIN terdeteksi/login, arahkan ke admin-dashboard sebagai first page
+  // When role ADMIN is detected, direct to admin-dashboard
   useEffect(() => {
     if (user?.role === 'ADMIN') {
       setCurrentTab((prev) => (prev === 'catalog' ? 'admin-dashboard' : prev));
     }
   }, [user?.role, user?.id]);
 
-  // Saat berpindah halaman/tab, reset query pencarian Navbar
+  // Reset navbar search query when switching tabs
   useEffect(() => {
     setSearchQuery('');
   }, [currentTab]);
@@ -67,7 +71,6 @@ export default function App() {
 
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
 
   // Check URL query parameters for ?token=... (email verification link)
   useEffect(() => {
@@ -81,8 +84,8 @@ export default function App() {
 
   // Fetch public auth configuration (idle timeout minutes from backend env)
   useEffect(() => {
-    fetch('/api/auth/config')
-      .then((res) => (res.ok ? res.json() : null))
+    authService
+      .getConfig()
       .then((data) => {
         if (data && typeof data.idleTimeoutMinutes === 'number' && data.idleTimeoutMinutes > 0) {
           setIdleTimeoutMinutes(data.idleTimeoutMinutes);
@@ -91,71 +94,50 @@ export default function App() {
       .catch(() => {});
   }, [setIdleTimeoutMinutes]);
 
-  // Fetch current user and products
+  // Fetch current user on mount
   useEffect(() => {
     refreshMe();
-  }, []);
+  }, [refreshMe]);
 
-  // Proactive Token Expiration Check:
-  // When user is logged in, check token remaining time periodically (every 15s).
-  // If remaining time is less than 1 minute, refresh token from backend.
+  // Proactive Token Expiration Check (every 15s)
   useEffect(() => {
     if (!token || !user) return;
 
-    // Run check immediately
-    refreshTokenIfExpiring();
-
     const interval = setInterval(() => {
-      refreshTokenIfExpiring();
+      refreshTokenIfExpiring().catch(() => {});
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [token, user?.id]);
+  }, [token, user, refreshTokenIfExpiring]);
 
-  // ⏱️ Auto-Logout on Inactivity (User Activity Idle Timeout)
-  // Automatically logs the user out if there is no user activity for idleTimeoutMinutes (default: 5 minutes)
+  // Inactivity / Idle Auto-Logout Tracker
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user?.id || !token) return;
 
-    const timeoutDurationMs = (idleTimeoutMinutes || 5) * 60 * 1000;
     let lastActivityTime = Date.now();
     let idleCheckInterval: any = null;
-
-    const resetActivity = () => {
-      lastActivityTime = Date.now();
-    };
-
-    // User activity events across desktop and touch devices
-    const activityEvents = [
-      'mousedown',
-      'mousemove',
-      'keydown',
-      'scroll',
-      'touchstart',
-      'click',
-      'wheel',
-    ];
-
-    // Debounce listener attachment to minimize overhead
     let throttleTimeout: any = null;
+
+    const timeoutDurationMs = (idleTimeoutMinutes || 5) * 60 * 1000;
+
     const handleUserActivity = () => {
+      lastActivityTime = Date.now();
       if (!throttleTimeout) {
         throttleTimeout = setTimeout(() => {
-          resetActivity();
+          refreshTokenIfExpiring().catch(() => {});
           throttleTimeout = null;
-        }, 1000);
+        }, 30000);
       }
     };
 
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     activityEvents.forEach((event) => {
       window.addEventListener(event, handleUserActivity, { passive: true });
     });
 
-    // Check every 5 seconds whether the idle timeout has elapsed
     idleCheckInterval = setInterval(() => {
       const elapsedMs = Date.now() - lastActivityTime;
       if (elapsedMs >= timeoutDurationMs) {
-        console.warn(`⏳ User idle for ${Math.round(elapsedMs / 1000)}s (limit: ${idleTimeoutMinutes}m). Logging out...`);
         logout('IDLE_TIMEOUT');
         setShowLogoutConfirm(false);
         addToast({
@@ -177,25 +159,16 @@ export default function App() {
       if (idleCheckInterval) clearInterval(idleCheckInterval);
       if (throttleTimeout) clearTimeout(throttleTimeout);
     };
-  }, [user?.id, token, idleTimeoutMinutes, logout, addToast, t]);
+  }, [user?.id, token, idleTimeoutMinutes, logout, addToast, t, refreshTokenIfExpiring]);
 
+  // Product fetching via productService
   const fetchProducts = async () => {
     if (!token) return;
     try {
-      setLoadingProducts(true);
-      const res = await fetch('/api/products', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(data.products || []);
-      }
+      const list = await productService.getProducts();
+      setProducts(list);
     } catch (err) {
       console.error('Failed to load products:', err);
-    } finally {
-      setLoadingProducts(false);
     }
   };
 
@@ -215,29 +188,23 @@ export default function App() {
     });
   };
 
-  // If user is not authenticated, show Auth screens
+  // If user is not authenticated, show Auth Layout & Views
   if (!user || !token) {
-    if (authMode === 'register') {
-      return (
-        <>
-          <ToastContainer />
-          <RegisterView
+    return (
+      <AuthLayout>
+        {authMode === 'register' && (
+          <RegisterPage
             onSwitchToLogin={() => setAuthMode('login')}
-            onRegisteredSuccess={(email, token) => {
+            onRegisteredSuccess={(email, t) => {
               setRegisteredEmail(email);
-              setVerifyToken(token);
+              setVerifyToken(t || '');
               setAuthMode('verify');
             }}
           />
-        </>
-      );
-    }
+        )}
 
-    if (authMode === 'verify') {
-      return (
-        <>
-          <ToastContainer />
-          <VerifyEmailView
+        {authMode === 'verify' && (
+          <VerifyEmailPage
             initialToken={verifyToken}
             initialEmail={registeredEmail}
             onVerifiedSuccess={() => {
@@ -246,149 +213,95 @@ export default function App() {
             }}
             onBackToLogin={() => setAuthMode('login')}
           />
-        </>
-      );
-    }
+        )}
 
-    return (
-      <>
-        <ToastContainer />
-        <LoginView
-          onSwitchToRegister={() => setAuthMode('register')}
-          onSwitchToVerify={(t) => {
-            if (t) setVerifyToken(t);
-            setAuthMode('verify');
-          }}
-        />
-      </>
+        {authMode === 'login' && (
+          <LoginPage
+            onSwitchToRegister={() => setAuthMode('register')}
+            onSwitchToVerify={(t) => {
+              if (t) setVerifyToken(t);
+              setAuthMode('verify');
+            }}
+          />
+        )}
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="h-screen h-dvh bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex overflow-hidden font-['Plus_Jakarta_Sans',sans-serif] transition-colors">
-      {/* Toast Notifications */}
-      <ToastContainer />
-
-      {/* Desktop Sidebar - 100% Screen Height */}
-      <div className="hidden lg:flex flex-col h-full max-h-screen min-h-0 shrink-0 overflow-hidden">
-        <Sidebar
-          currentTab={currentTab}
-          onSelectTab={(tab) => setCurrentTab(tab)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onRequestLogout={() => setShowLogoutConfirm(true)}
-          productCount={products.length}
+    <RootLayout
+      currentTab={currentTab}
+      onSelectTab={(tab) => setCurrentTab(tab)}
+      onRequestLogout={() => setShowLogoutConfirm(true)}
+      productCount={products.length}
+    >
+      {currentTab === 'catalog' && (
+        <ProductCatalogPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToPOS={() => setCurrentTab('pos')}
+          searchQuery={searchQuery}
         />
-      </div>
-
-      {/* Mobile / Tablet Drawer Sidebar */}
-      {isMobileSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 flex">
-          <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-          <div className="relative z-50 w-72 bg-white dark:bg-slate-900 flex flex-col h-full max-h-screen min-h-0 shadow-2xl overflow-hidden">
-            <Sidebar
-              currentTab={currentTab}
-              onSelectTab={(tab) => {
-                setCurrentTab(tab);
-                setIsMobileSidebarOpen(false);
-              }}
-              isCollapsed={false}
-              onToggleCollapse={() => setIsMobileSidebarOpen(false)}
-              onRequestLogout={() => {
-                setIsMobileSidebarOpen(false);
-                setShowLogoutConfirm(true);
-              }}
-              productCount={products.length}
-            />
-          </div>
-        </div>
       )}
 
-      {/* Main Content Area: Scrollable main content viewport */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
-        {/* Floating Mobile Sidebar Trigger */}
-        <button
-          onClick={() => setIsMobileSidebarOpen(true)}
-          className="lg:hidden fixed top-3.5 left-3.5 z-30 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-          aria-label="Buka Menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+      {currentTab === 'product-management' && (
+        <ProductManagementPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToCategories={() => setCurrentTab('category-management')}
+        />
+      )}
 
-        {/* Main Content Viewport */}
-        <main className="flex-1 overflow-y-auto min-h-0">
-          {currentTab === 'catalog' && (
-            <ProductCatalogView
-              products={products}
-              onRefreshProducts={fetchProducts}
-              onNavigateToPOS={() => setCurrentTab('pos')}
-              searchQuery={searchQuery}
-            />
-          )}
+      {currentTab === 'category-management' && (
+        <CategoryManagementPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToProducts={() => setCurrentTab('product-management')}
+        />
+      )}
 
-          {currentTab === 'product-management' && (
-            <ProductManagementView
-              products={products}
-              onRefreshProducts={fetchProducts}
-              onNavigateToCategories={() => setCurrentTab('category-management')}
-            />
-          )}
+      {currentTab === 'categories' && (
+        <ProductCatalogPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToPOS={() => setCurrentTab('pos')}
+        />
+      )}
 
-          {currentTab === 'category-management' && (
-            <CategoryManagementView
-              products={products}
-              onRefreshProducts={fetchProducts}
-              onNavigateToProducts={() => setCurrentTab('product-management')}
-            />
-          )}
+      {currentTab === 'pos' && (
+        <POSPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToCatalog={() => setCurrentTab('catalog')}
+        />
+      )}
 
-          {currentTab === 'categories' && (
-            <ProductCatalogView
-              products={products}
-              onRefreshProducts={fetchProducts}
-              onNavigateToPOS={() => setCurrentTab('pos')}
-            />
-          )}
+      {currentTab === 'history' && <SalesHistoryPage />}
 
-          {currentTab === 'pos' && (
-            <CartView
-              products={products}
-              onRefreshProducts={fetchProducts}
-              onNavigateToCatalog={() => setCurrentTab('catalog')}
-            />
-          )}
+      {currentTab === 'admin-dashboard' && <AdminDashboardPage />}
 
-          {currentTab === 'history' && <SalesHistoryView />}
+      {currentTab === 'dashboard' && <TenantDashboardPage />}
 
-          {currentTab === 'admin-dashboard' && <AdminDashboardView />}
+      {currentTab === 'cashiers' && <CashierManagementPage />}
 
-          {currentTab === 'dashboard' && <TenantDashboardView />}
+      {currentTab === 'activity-log' && <ActivityLogPage />}
 
-          {currentTab === 'cashiers' && <CashierManagementView />}
+      {currentTab === 'login-history' && <LoginHistoryPage />}
 
-          {currentTab === 'activity-log' && <ActivityLogView />}
+      {currentTab === 'tenants' && <TenantManagementPage />}
 
-          {currentTab === 'login-history' && <LoginHistoryView />}
+      {currentTab === 'tenant-info' && <TenantInfoPage />}
 
-          {currentTab === 'tenants' && <TenantManagementView />}
+      {currentTab === 'configuration' && (
+        <ConfigurationPage
+          onRequestLogout={() => setShowLogoutConfirm(true)}
+          onNavigateToPOS={() => setCurrentTab('pos')}
+        />
+      )}
 
-          {currentTab === 'tenant-info' && <TenantInfoView />}
+      {currentTab === 'profile' && <UserProfilePage />}
 
-          {currentTab === 'configuration' && (
-            <ConfigurationView
-              onRequestLogout={() => setShowLogoutConfirm(true)}
-              onNavigateToPOS={() => setCurrentTab('pos')}
-            />
-          )}
-
-          {currentTab === 'profile' && <UserProfileView />}
-        </main>
-      </div>
-
-      {/* Confirmation Modal for Logout as required */}
+      {/* Confirmation Modal for Logout */}
       <ConfirmationModal
         isOpen={showLogoutConfirm}
         type="LOGOUT"
@@ -400,6 +313,6 @@ export default function App() {
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
-    </div>
+    </RootLayout>
   );
 }

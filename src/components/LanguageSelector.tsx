@@ -3,7 +3,7 @@ import * as Select from '@radix-ui/react-select';
 import { useTranslation } from 'react-i18next';
 import { Globe, Check, ChevronDown } from 'lucide-react';
 import { setAppLanguage } from '../i18n';
-import { useToastStore } from '../store/toastStore';
+import { useToastStore } from '../stores/toastStore';
 
 interface LanguageSelectorProps {
   variant?: 'navbar' | 'auth' | 'compact';

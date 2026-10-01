@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import * as Select from '@radix-ui/react-select';
 import { LoginHistoryItem, LoginHistoryResponse, Role, Tenant } from '../../types';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '../../stores/authStore';
 
 type ValuePiece = Date | null;
 type DatePickerValue = ValuePiece | [ValuePiece, ValuePiece];
