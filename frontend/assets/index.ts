@@ -1,1 +1,1 @@
-export const LOGO_SVG = '/frontend/assets/logo.svg';
+export const LOGO_SVG = '/src/assets/logo.svg';
