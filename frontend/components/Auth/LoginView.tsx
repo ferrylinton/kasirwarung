@@ -92,15 +92,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center p-4 relative transition-colors">
-      {/* Top right language switcher and theme toggle in auth view */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <ThemeToggle />
-        <LanguageSelector variant="auth" />
-      </div>
-
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 relative">
+        {/* Language switcher and theme toggle in login box */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
+          <ThemeToggle />
+          <LanguageSelector variant="compact" />
+        </div>
         {/* Header Branding */}
-        <div className="text-center mb-6">
+        <div className="text-center mt-6 mb-6">
           <div className="w-14 h-14 btn-theme-primary rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-3">
             <ShoppingBag className="w-8 h-8 text-amber-300" />
           </div>

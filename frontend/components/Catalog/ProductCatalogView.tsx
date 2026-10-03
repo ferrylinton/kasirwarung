@@ -248,8 +248,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 relative">
-      {/* Floating View Cart Button on Top Right Side */}
-      <div className="fixed top-4 sm:top-5 right-4 sm:right-6 md:right-8 z-40">
+      {/* Floating View Cart Button on Bottom Right */}
+      <div className="fixed bottom-6 right-6 z-30">
         <button
           onClick={onNavigateToPOS}
           className="group flex items-center gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border border-emerald-600/40"
