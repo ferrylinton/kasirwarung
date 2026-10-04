@@ -74,13 +74,18 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center p-4 relative transition-colors">
-      {/* Top right language switcher & theme toggle in auth view */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <ThemeToggle />
-        <LanguageSelector variant="auth" />
-      </div>
+   
 
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative text-center">
+        {/* Language switcher and theme toggle centered at the top of login box */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="inline-flex items-center gap-2 p-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 rounded-2xl shadow-2xs">
+            <ThemeToggle />
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+            <LanguageSelector variant="compact" />
+          </div>
+        </div>
+        
         <div className="w-16 h-16 bg-theme-light text-theme-primary rounded-3xl mx-auto flex items-center justify-center shadow-xs mb-4">
           <MailCheck className="w-8 h-8" />
         </div>
