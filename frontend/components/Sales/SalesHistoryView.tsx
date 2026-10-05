@@ -272,7 +272,7 @@ export const SalesHistoryView: React.FC = () => {
               onChange={handleSingleDateChange}
               value={singleDate}
               locale="id-ID"
-              format="dd/MM/yyyy"
+              format="d/MM/yyyy"
               clearIcon={singleDate ? undefined : null}
               className="custom-react-date-picker text-xs font-medium"
             />
@@ -281,7 +281,7 @@ export const SalesHistoryView: React.FC = () => {
               onChange={handleRangeDateChange}
               value={rangeDate}
               locale="id-ID"
-              format="dd/MM/yyyy"
+              format="d/MM/yyyy"
               rangeDivider=" — "
               clearIcon={rangeDate ? undefined : null}
               className="custom-react-date-picker text-xs font-medium"
