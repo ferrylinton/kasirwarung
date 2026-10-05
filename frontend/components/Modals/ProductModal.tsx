@@ -95,6 +95,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const schema = z.object({
+      name: z.string().min(2, t('modals.productForm.errors.nameMin', 'Nama produk minimal 2 karakter')),
+      sku: z.string().min(2, t('modals.productForm.errors.skuMin', 'Kode SKU / Barcode minimal 2 karakter')),
+      category: z.string().min(1, t('modals.productForm.errors.categoryReq', 'Pilih salah satu kategori')),
+      price: z
+        .number({ error: t('modals.productForm.errors.priceNumber', 'Harga ecer harus berupa angka') })
+        .positive(t('modals.productForm.errors.pricePositive', 'Harga jual harus lebih besar dari 0')),
+      costPrice: z
+        .number({ error: t('modals.productForm.errors.costNumber', 'Harga modal harus berupa angka') })
+        .nonnegative(t('modals.productForm.errors.costNonNegative', 'Harga modal tidak boleh negatif')),
+      stock: z
+        .number({ error: t('modals.productForm.errors.stockNumber', 'Stok harus berupa angka') })
+        .int(t('modals.productForm.errors.stockInt', 'Stok harus bilangan bulat'))
+        .nonnegative(t('modals.productForm.errors.stockNonNegative', 'Stok tidak boleh negatif')),
+      unit: z.string().min(1, t('modals.productForm.errors.unitReq', 'Satuan wajib diisi (contoh: kg, bks, botol, karung)')),
+      minStock: z
+        .number({ error: t('modals.productForm.errors.minStockNumber', 'Batas minimal harus angka') })
+        .int()
+        .nonnegative(t('modals.productForm.errors.minStockNonNegative', 'Batas minimal tidak boleh negatif')),
+    });
+
     const parsedValues = {
       name: formData.name.trim(),
       sku: formData.sku.trim().toUpperCase(),
@@ -106,7 +127,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       minStock: Number(formData.minStock || '5'),
     };
 
-    const result = ProductFormSchema.safeParse(parsedValues);
+    const result = schema.safeParse(parsedValues);
     if (!result.success) {
       const fieldErrors: { [key: string]: string } = {};
       result.error.issues.forEach((issue) => {
@@ -153,15 +174,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  {isEditing ? 'Ubah Data Produk' : 'Tambah Produk Baru'}
+                  {isEditing
+                    ? t('modals.productForm.editTitle', 'Ubah Data Produk')
+                    : t('modals.productForm.addNewTitle', 'Tambah Produk Baru')}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {isEditing ? `Perbarui informasi untuk ${product?.name}` : 'Masukkan rincian sembako atau produk warung'}
+                  {isEditing
+                    ? t('modals.productForm.editSubtitle', 'Perbarui informasi untuk {{name}}', { name: product?.name })
+                    : t('modals.productForm.addSubtitle', 'Masukkan rincian sembako atau produk warung')}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
+              aria-label={t('common.close', 'Tutup')}
+              title={t('common.close', 'Tutup')}
               className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -173,13 +200,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Product Name */}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Nama Produk <span className="text-rose-500">*</span>
+                  {t('modals.productForm.nameLabel', 'Nama Produk')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Contoh: Beras Pandan Wangi 5kg"
+                  placeholder={t('modals.productForm.namePlaceholder', 'Contoh: Beras Pandan Wangi 5kg')}
                   className={`w-full px-3.5 py-2 text-sm rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden transition-all ${
                     errors.name ? 'border-rose-400 focus:ring-2 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-500'
                   }`}
@@ -190,13 +217,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* SKU / Barcode */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Kode SKU / Barcode <span className="text-rose-500">*</span>
+                  {t('modals.productForm.barcodeLabel', 'Kode SKU / Barcode')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.sku}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  placeholder="BRS-PW05"
+                  placeholder={t('modals.productForm.barcodePlaceholder', 'BRS-PW05')}
                   className={`w-full px-3.5 py-2 text-sm font-mono rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden transition-all ${
                     errors.sku ? 'border-rose-400 focus:ring-2 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-500'
                   }`}
@@ -207,7 +234,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Category */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Kategori Produk <span className="text-rose-500">*</span>
+                  {t('modals.productForm.categoryLabel', 'Kategori Produk')} <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={formData.category}
@@ -216,7 +243,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
-                      {c}
+                      {t(`catalog.categoryNames.${c}`, c)}
                     </option>
                   ))}
                 </select>
@@ -226,13 +253,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Selling Price */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Harga Ecer / Jual (Rp) <span className="text-rose-500">*</span>
+                  {t('modals.productForm.sellingPriceLabel', 'Harga Ecer / Jual (Rp)')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="74000"
+                  placeholder={t('modals.productForm.sellingPricePlaceholder', '74000')}
                   className={`w-full px-3.5 py-2 text-sm font-mono rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden transition-all ${
                     errors.price ? 'border-rose-400 focus:ring-2 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-500'
                   }`}
@@ -243,13 +270,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Cost Price */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Harga Beli / Modal (Rp)
+                  {t('modals.productForm.costPriceLabel', 'Harga Beli / Modal (Rp)')}
                 </label>
                 <input
                   type="number"
                   value={formData.costPrice}
                   onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                  placeholder="68000"
+                  placeholder={t('modals.productForm.costPricePlaceholder', '68000')}
                   className="w-full px-3.5 py-2 text-sm font-mono rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all"
                 />
               </div>
@@ -257,13 +284,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Stock */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Jumlah Stok Saat Ini <span className="text-rose-500">*</span>
+                  {t('modals.productForm.stockLabel', 'Jumlah Stok Saat Ini')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  placeholder="24"
+                  placeholder={t('modals.productForm.stockPlaceholder', '24')}
                   className={`w-full px-3.5 py-2 text-sm font-mono rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden transition-all ${
                     errors.stock ? 'border-rose-400 focus:ring-2 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-500'
                   }`}
@@ -274,13 +301,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Unit */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Satuan <span className="text-rose-500">*</span>
+                  {t('modals.productForm.unitLabel', 'Satuan')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  placeholder="karung, bks, kg, pouch, botol"
+                  placeholder={t('modals.productForm.unitPlaceholder', 'karung, bks, kg, pouch, botol')}
                   className={`w-full px-3.5 py-2 text-sm rounded-xl border bg-slate-50/50 focus:bg-white focus:outline-hidden transition-all ${
                     errors.unit ? 'border-rose-400 focus:ring-2 focus:ring-rose-200' : 'border-slate-200 focus:border-emerald-500'
                   }`}
@@ -298,7 +325,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
                       }`}
                     >
-                      {s}
+                      {t(`catalog.units.${s}`, s)}
                     </button>
                   ))}
                 </div>
@@ -307,13 +334,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {/* Min Stock */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Batas Peringatan Stok Menipis
+                  {t('modals.productForm.minStockLabel', 'Batas Peringatan Stok Menipis')}
                 </label>
                 <input
                   type="number"
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                  placeholder="5"
+                  placeholder={t('modals.productForm.minStockPlaceholder', '5')}
                   className="w-full px-3.5 py-2 text-sm font-mono rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all"
                 />
               </div>

@@ -18,6 +18,7 @@ import {
   FolderTree,
   Scale,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import { NavTab } from './Sidebar';
@@ -30,37 +31,38 @@ export interface NavbarProps {
   isScrolled?: boolean;
 }
 
-const TAB_CONFIG: Record<NavTab, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  'admin-dashboard': { label: 'Dashboard Admin', icon: Shield },
-  catalog: { label: 'Katalog Produk', icon: Package },
-  categories: { label: 'Kategori', icon: Layers },
-  'product-management': { label: 'Kelola Produk', icon: Boxes },
-  'category-management': { label: 'Kelola Kategori', icon: FolderTree },
-  'unit-management': { label: 'Istilah Satuan Kasir', icon: Scale },
-  pos: { label: 'Keranjang', icon: ShoppingCart },
-  history: { label: 'Riwayat Transaksi', icon: Receipt },
-  dashboard: { label: 'Laporan Toko', icon: BarChart3 },
-  cashiers: { label: 'Staf Kasir', icon: Users2 },
-  tenants: { label: 'Manajemen Tenant', icon: Building2 },
-  'tenant-info': { label: 'Informasi Toko', icon: Store },
-  'activity-log': { label: 'Log Aktivitas', icon: ClipboardList },
-  'login-history': { label: 'Histori Login', icon: KeyRound },
-  configuration: { label: 'Konfigurasi Sistem', icon: SlidersHorizontal },
-  profile: { label: 'Profil Pengguna', icon: User },
-};
-
 export const Navbar: React.FC<NavbarProps> = ({
   onToggleSidebar,
   currentTab,
   onSelectTab,
   isScrolled = false,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { getItemCount, getTotal } = useCartStore();
 
+  const tabConfig: Record<NavTab, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    'admin-dashboard': { label: t('nav.adminDashboard', 'Dashboard Admin'), icon: Shield },
+    catalog: { label: t('nav.catalog', 'Katalog Produk'), icon: Package },
+    categories: { label: t('nav.categories', 'Kategori & Stok'), icon: Layers },
+    'product-management': { label: t('nav.productManagement', 'Manajemen Produk'), icon: Boxes },
+    'category-management': { label: t('nav.categoryManagement', 'Manajemen Kategori'), icon: FolderTree },
+    'unit-management': { label: t('nav.unitManagement', 'Istilah Satuan Kasir'), icon: Scale },
+    pos: { label: t('nav.pos', 'Keranjang'), icon: ShoppingCart },
+    history: { label: t('nav.history', 'Riwayat Penjualan'), icon: Receipt },
+    dashboard: { label: t('nav.dashboard', 'Dashboard Statistik'), icon: BarChart3 },
+    cashiers: { label: t('nav.cashiers', 'Kelola Staf Kasir'), icon: Users2 },
+    tenants: { label: t('nav.tenants', 'Manajemen Tenant'), icon: Building2 },
+    'tenant-info': { label: t('nav.tenantInfo', 'Informasi Tenant'), icon: Store },
+    'activity-log': { label: t('nav.activityLog', 'Log Aktivitas'), icon: ClipboardList },
+    'login-history': { label: t('nav.loginHistory', 'Histori Login'), icon: KeyRound },
+    configuration: { label: t('nav.configuration', 'Konfigurasi Sistem'), icon: SlidersHorizontal },
+    profile: { label: t('nav.profile', 'Profil Pengguna'), icon: User },
+  };
+
   const cartItemCount = getItemCount();
   const cartTotal = getTotal();
-  const currentTabInfo = TAB_CONFIG[currentTab] || { label: 'Dashboard', icon: Store };
+  const currentTabInfo = tabConfig[currentTab] || { label: t('nav.dashboard', 'Dashboard'), icon: Store };
 
   return (
     <header
@@ -75,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onToggleSidebar}
           className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer shrink-0"
-          aria-label="Buka Menu"
+          aria-label={t('nav.openMenu', 'Buka Menu')}
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -103,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ? 'bg-emerald-800 text-white border-emerald-700 ring-2 ring-emerald-500/30'
                 : 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-600/50'
             }`}
-            title="Buka Keranjang / Kasir"
+            title={t('nav.openCartTooltip', 'Buka Keranjang / Kasir')}
           >
             <div className="relative flex items-center justify-center">
               <ShoppingCart className="w-4 h-4 text-white transition-transform group-hover:scale-110" />
@@ -115,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold leading-tight flex items-center gap-1.5">
-                <span>Keranjang</span>
+                <span>{t('nav.pos', 'Keranjang')}</span>
               </span>
               {cartTotal > 0 && (
                 <span className="text-[10px] sm:text-[11px] font-mono font-semibold text-emerald-100 leading-tight">

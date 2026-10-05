@@ -138,11 +138,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             cartItemCount > 0
               ? `${cartItemCount}`
               : savedOrdersCount > 0
-              ? `${savedOrdersCount} hold`
+              ? t('nav.holdBadge', '{{count}} hold', { count: savedOrdersCount })
               : undefined,
           secondaryBadge:
             cartItemCount > 0 && savedOrdersCount > 0
-              ? `${savedOrdersCount} hold`
+              ? t('nav.holdBadge', '{{count}} hold', { count: savedOrdersCount })
               : undefined,
           hasDot: cartItemCount > 0 || savedOrdersCount > 0,
           roles: ['MANAGER', 'CASHIER'],
@@ -278,7 +278,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-tight truncate">
                 {tenantName}
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Toko Kelontong</div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                {t('nav.storeType', 'Toko Kelontong')}
+              </div>
             </div>
           </div>
         )}
@@ -328,9 +330,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                   title={
                     isPosItem && (cartItemCount > 0 || savedOrdersCount > 0)
-                      ? `${item.label} (${cartItemCount} item di keranjang${
-                          savedOrdersCount > 0 ? `, ${savedOrdersCount} pesanan tersimpan` : ''
-                        })`
+                      ? savedOrdersCount > 0
+                        ? t('nav.cartAndSavedTooltip', '{{label}} ({{cartCount}} item di keranjang, {{savedCount}} pesanan tersimpan)', {
+                            label: item.label,
+                            cartCount: cartItemCount,
+                            savedCount: savedOrdersCount,
+                          })
+                        : t('nav.cartOnlyTooltip', '{{label}} ({{cartCount}} item di keranjang)', {
+                            label: item.label,
+                            cartCount: cartItemCount,
+                          })
                       : item.label
                   }
                 >
@@ -382,7 +391,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               ? 'bg-amber-300/30 text-amber-100 border border-amber-200/40'
                               : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
                           }`}
-                          title={`${savedOrdersCount} pesanan tersimpan (hold)`}
+                          title={t('nav.savedOrdersTooltip', '{{count}} pesanan tersimpan (hold)', { count: savedOrdersCount })}
                         >
                           {item.secondaryBadge}
                         </span>
@@ -411,14 +420,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div
             onClick={() => onSelectTab('profile')}
             className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer group"
-            title={`${user?.name || 'Pengguna'} (${getRoleLabel(role)}) - ${t('nav.profile', 'Profil Pengguna')}`}
+            title={`${user?.name || t('nav.defaultUser', 'Pengguna')} (${getRoleLabel(role)}) - ${t('nav.profile', 'Profil Pengguna')}`}
           >
             <div className="w-8 h-8 rounded-lg bg-theme-light border border-theme-border text-theme-text font-bold text-xs flex items-center justify-center shrink-0 uppercase shadow-2xs">
               {userInitials}
             </div>
             <div className="truncate flex-1 min-w-0">
               <div className="font-semibold text-xs text-slate-800 dark:text-slate-100 truncate group-hover:text-theme-primary transition-colors">
-                {user?.name || 'Pengguna'}
+                {user?.name || t('nav.defaultUser', 'Pengguna')}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span
@@ -436,7 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => onSelectTab('profile')}
               className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-theme-primary flex items-center justify-center text-xs font-bold text-theme-text dark:text-slate-200 hover:bg-theme-light transition-all cursor-pointer relative"
-              title={`${user?.name || 'Pengguna'} (${getRoleLabel(role)})`}
+              title={`${user?.name || t('nav.defaultUser', 'Pengguna')} (${getRoleLabel(role)})`}
             >
               {userInitials}
               <span

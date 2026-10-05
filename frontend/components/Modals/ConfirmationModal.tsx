@@ -1,5 +1,6 @@
 import React from 'react';
 import { LogOut, Trash2, Edit3, AlertTriangle, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type ConfirmationType = 'LOGOUT' | 'DELETE' | 'UPDATE' | 'CUSTOM';
 
@@ -20,13 +21,18 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   type = 'CUSTOM',
   title,
   description,
-  confirmText = 'Konfirmasi',
-  cancelText = 'Batal',
+  confirmText,
+  cancelText,
   isDestructive = false,
   onConfirm,
   onCancel,
 }) => {
+  const { t } = useTranslation();
+
   if (!isOpen) return null;
+
+  const resolvedConfirmText = confirmText || t('common.confirm', 'Konfirmasi');
+  const resolvedCancelText = cancelText || t('common.cancel', 'Batal');
 
   const renderIcon = () => {
     switch (type) {
@@ -71,6 +77,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           {renderIcon()}
           <button
             onClick={onCancel}
+            aria-label={t('common.close', 'Tutup')}
+            title={t('common.close', 'Tutup')}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -86,14 +94,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             onClick={onCancel}
             className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className={`px-5 py-2.5 text-sm font-bold rounded-xl shadow-xs transition-all cursor-pointer ${confirmBtnColor}`}
           >
-            {confirmText}
+            {resolvedConfirmText}
           </button>
         </div>
       </div>

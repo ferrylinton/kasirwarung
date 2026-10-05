@@ -51,6 +51,19 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
   const isManager = user?.role === 'MANAGER';
 
+  const translateUnit = (unit: string) => {
+    if (!unit) return '';
+    return t(`catalog.units.${unit.trim().toLowerCase()}`, unit);
+  };
+
+  const translateCategory = (cat: string) => {
+    if (!cat) return '';
+    if (cat === 'Semua Produk' || cat === 'Semua') {
+      return t('catalog.allCategories', 'Semua Kategori Produk');
+    }
+    return t(`catalog.categoryNames.${cat}`, cat);
+  };
+
   // Map of product ID -> quantity currently in active cart
   const cartQtyMap = React.useMemo(() => {
     const map: { [id: string]: number } = {};
@@ -138,12 +151,17 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   const handleAddToCart = (p: Product) => {
     const inCart = cartQtyMap[p.id] || 0;
     const remaining = p.stock - inCart;
+    const unitLabel = translateUnit(p.unit);
 
     if (remaining <= 0) {
       addToast({
         type: 'warning',
-        title: 'Stok Habis di Kasir',
-        message: `Maksimal stok tercapai. Seluruh ${p.stock} ${p.unit} "${p.name}" sudah ada di keranjang kasir.`,
+        title: t('catalog.toastOutOfStockTitle', 'Stok Habis di Kasir'),
+        message: t(
+          'catalog.toastOutOfStockMsg',
+          'Maksimal stok tercapai. Seluruh {{stock}} {{unit}} "{{name}}" sudah ada di keranjang kasir.',
+          { stock: p.stock, unit: unitLabel, name: p.name }
+        ),
       });
       return;
     }
@@ -153,18 +171,29 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       const newRemaining = remaining - 1;
       addToast({
         type: 'success',
-        title: 'Ditambah ke Kasir',
+        title: t('catalog.toastAddedTitle', 'Ditambah ke Kasir'),
         message:
           newRemaining === 0
-            ? `"${p.name}" dimasukkan ke kasir. Seluruh stok (${p.stock} ${p.unit}) kini telah di keranjang.`
-            : `"${p.name}" dimasukkan ke kasir (Sisa stok: ${newRemaining} ${p.unit}).`,
+            ? t(
+                'catalog.toastAddedAllMsg',
+                '"{{name}}" dimasukkan ke kasir. Seluruh stok ({{stock}} {{unit}}) kini telah di keranjang.',
+                { name: p.name, stock: p.stock, unit: unitLabel }
+              )
+            : t(
+                'catalog.toastAddedRemainingMsg',
+                '"{{name}}" dimasukkan ke kasir (Sisa stok: {{remaining}} {{unit}}).',
+                { name: p.name, remaining: newRemaining, unit: unitLabel }
+              ),
         duration: 2000,
       });
     } else {
       addToast({
         type: 'warning',
-        title: 'Stok Terbatas',
-        message: `Maksimal stok tercapai (${p.stock} ${p.unit}).`,
+        title: t('catalog.toastLimitedStockTitle', 'Stok Terbatas'),
+        message: t('catalog.toastLimitedStockMsg', 'Maksimal stok tercapai ({{stock}} {{unit}}).', {
+          stock: p.stock,
+          unit: unitLabel,
+        }),
       });
     }
   };
@@ -173,8 +202,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
     if (user?.role === 'ADMIN') {
       addToast({
         type: 'error',
-        title: 'Akses Ditolak',
-        message: 'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.',
+        title: t('catalog.toastAccessDeniedTitle', 'Akses Ditolak'),
+        message: t(
+          'catalog.toastAccessDeniedMsg',
+          'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.'
+        ),
       });
       return;
     }
@@ -194,12 +226,14 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
       const resData = await res.json();
       if (!res.ok) {
-        throw new Error(resData.message || 'Gagal menyimpan produk');
+        throw new Error(resData.message || t('catalog.toastSaveFailedDefault', 'Gagal menyimpan produk'));
       }
 
       addToast({
         type: 'success',
-        title: editingProduct ? 'Produk Diperbarui' : 'Produk Ditambahkan',
+        title: editingProduct
+          ? t('catalog.toastProductUpdatedTitle', 'Produk Diperbarui')
+          : t('catalog.toastProductAddedTitle', 'Produk Ditambahkan'),
         message: resData.message,
       });
 
@@ -207,7 +241,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Gagal Menyimpan',
+        title: t('catalog.toastSaveFailedTitle', 'Gagal Menyimpan'),
         message: err.message,
       });
       throw err;
@@ -220,8 +254,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
     if (user?.role === 'ADMIN') {
       addToast({
         type: 'error',
-        title: 'Akses Ditolak',
-        message: 'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.',
+        title: t('catalog.toastAccessDeniedTitle', 'Akses Ditolak'),
+        message: t(
+          'catalog.toastAccessDeniedMsg',
+          'Role ADMIN tidak bisa menambah, mengubah, atau menghapus data produk dan kategori. Hak akses ini khusus role MANAGER.'
+        ),
       });
       return;
     }
@@ -236,12 +273,12 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 
       const resData = await res.json();
       if (!res.ok) {
-        throw new Error(resData.message || 'Gagal menghapus produk');
+        throw new Error(resData.message || t('catalog.toastDeleteFailedDefault', 'Gagal menghapus produk'));
       }
 
       addToast({
         type: 'success',
-        title: 'Produk Dihapus',
+        title: t('catalog.toastProductDeletedTitle', 'Produk Dihapus'),
         message: resData.message,
       });
 
@@ -250,7 +287,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Gagal Menghapus',
+        title: t('catalog.toastDeleteFailedTitle', 'Gagal Menghapus'),
         message: err.message,
       });
     }
@@ -274,7 +311,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
         <div>
           <div className="text-[11px] font-bold text-emerald-700 tracking-wider uppercase mb-1 flex items-center gap-1.5">
             <Package className="w-3.5 h-3.5" />
-            <span>KasirWarung POS</span>
+            <span>{t('catalog.brandBadge', 'KasirWarung POS')}</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             {t('catalog.title', 'Katalog & Etalase Produk')}
@@ -484,28 +521,36 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
             {search.trim() ? (
               <>
-                Tidak ada produk sembako yang cocok dengan kata kunci{' '}
+                {t('catalog.searchNoMatchPrefix', 'Tidak ada produk sembako yang cocok dengan kata kunci')}{' '}
                 <span className="font-semibold text-slate-800 dark:text-slate-200 underline decoration-amber-400 underline-offset-2">
                   &quot;{search}&quot;
                 </span>
                 {selectedCategory !== 'Semua Produk' && (
-                  <> pada kategori <span className="font-semibold text-slate-800 dark:text-slate-200">&quot;{selectedCategory}&quot;</span></>
-                )}. Periksa ejaan nama produk, kode SKU, atau gunakan kata kunci lain.
+                  <>
+                    {' '}
+                    {t('catalog.searchNoMatchCategory', 'pada kategori')}{' '}
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      &quot;{translateCategory(selectedCategory)}&quot;
+                    </span>
+                  </>
+                )}
+                . {t('catalog.searchNoMatchSuffix', 'Periksa ejaan nama produk, kode SKU, atau gunakan kata kunci lain.')}
               </>
             ) : selectedCategory !== 'Semua Produk' ? (
               <>
-                Tidak ada produk terdaftar dalam kategori{' '}
-                <span className="font-semibold text-slate-800 dark:text-slate-200">&quot;{selectedCategory}&quot;</span>. Silakan pilih kategori lain atau tambahkan produk baru.
+                {t('catalog.categoryEmptyDescPrefix', 'Tidak ada produk terdaftar dalam kategori')}{' '}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">&quot;{translateCategory(selectedCategory)}&quot;</span>.{' '}
+                {t('catalog.categoryEmptyDescSuffix', 'Silakan pilih kategori lain atau tambahkan produk baru.')}
               </>
             ) : (
-              'Katalog produk warung Anda saat ini masih kosong. Silakan tambahkan produk baru untuk memulai transaksi kasir.'
+              t('catalog.emptyCatalogDesc', 'Katalog produk warung Anda saat ini masih kosong. Silakan tambahkan produk baru untuk memulai transaksi kasir.')
             )}
           </p>
 
           {/* Quick suggestions / keywords if search yielded no results */}
           {search.trim() && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 max-w-sm">
-              <span className="text-[11px] text-slate-400">Coba kata kunci:</span>
+              <span className="text-[11px] text-slate-400">{t('catalog.tryKeywords', 'Coba kata kunci:')}</span>
               {['Beras', 'Minyak', 'Gula', 'Telur', 'Kopi', 'Tepung'].map((keyword) => (
                 <button
                   key={keyword}
@@ -516,7 +561,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                   }}
                   className="px-2 py-0.5 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                 >
-                  {keyword}
+                  {t(`catalog.keywords.${keyword.toLowerCase()}`, keyword)}
                 </button>
               ))}
             </div>
@@ -534,7 +579,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Pencarian</span>
+                <span>{t('catalog.resetSearchBtn', 'Reset Pencarian')}</span>
               </button>
             )}
 
@@ -548,7 +593,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Tampilkan Semua Kategori</span>
+                <span>{t('catalog.showAllCategoriesBtn', 'Tampilkan Semua Kategori')}</span>
               </button>
             )}
 
@@ -562,7 +607,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2 bg-theme-primary hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                <span>Tambah Produk Baru</span>
+                <span>{t('catalog.addNewProductBtn', 'Tambah Produk Baru')}</span>
               </button>
             )}
           </div>
@@ -595,14 +640,16 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                   />
                   {inCartQty > 0 && (
                     <div className="absolute top-2 right-2 bg-theme-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
-                      <span>{inCartQty} di kasir</span>
+                      <span>{t('catalog.inCartBadge', '{{count}} di kasir', { count: inCartQty })}</span>
                     </div>
                   )}
                 </div>
 
                 {/* SKU and Stock Indicator */}
                 <div className="flex items-center justify-between text-[11px] mb-1 font-mono">
-                  <span className="text-slate-400 dark:text-slate-500">SKU: {p.sku}</span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    {t('catalog.skuPrefix', 'SKU: {{sku}}', { sku: p.sku })}
+                  </span>
                   <span
                     className={`font-semibold flex items-center gap-1 ${
                       isOutOfStock
@@ -618,10 +665,18 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                       }`}
                     ></span>
                     {isOutOfStock
-                      ? inCartQty > 0 ? 'Habis (di keranjang)' : 'Habis!'
+                      ? inCartQty > 0
+                        ? t('catalog.outOfStockInCart', 'Habis (di keranjang)')
+                        : t('catalog.outOfStockBang', 'Habis!')
                       : isLowStock
-                      ? `Sisa: ${availableStock} ${p.unit} (Menipis!)`
-                      : `Sisa: ${availableStock} ${p.unit}`}
+                      ? t('catalog.remainingStockLow', 'Sisa: {{count}} {{unit}} (Menipis!)', {
+                          count: availableStock,
+                          unit: translateUnit(p.unit),
+                        })
+                      : t('catalog.remainingStock', 'Sisa: {{count}} {{unit}}', {
+                          count: availableStock,
+                          unit: translateUnit(p.unit),
+                        })}
                   </span>
                 </div>
 
@@ -631,7 +686,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     {p.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 mb-3">
-                    Satuan: {p.unit}
+                    {t('catalog.unitPrefix', 'Satuan: {{unit}}', { unit: translateUnit(p.unit) })}
                   </p>
                 </div>
 
@@ -654,9 +709,13 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     title={
                       isOutOfStock
                         ? inCartQty > 0
-                          ? `Semua stok ${p.name} (${p.stock} ${p.unit}) sudah ada di keranjang kasir`
-                          : 'Stok produk habis (tidak dapat ditambah)'
-                        : `Tambah ${p.name} ke keranjang kasir`
+                          ? t(
+                              'catalog.allInCartTooltip',
+                              'Semua stok {{name}} ({{stock}} {{unit}}) sudah ada di keranjang kasir',
+                              { name: p.name, stock: p.stock, unit: translateUnit(p.unit) }
+                            )
+                          : t('catalog.outOfStockTooltip', 'Stok produk habis (tidak dapat ditambah)')
+                        : t('catalog.addToCartTooltip', 'Tambah {{name}} ke keranjang kasir', { name: p.name })
                     }
                     className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
                       isOutOfStock
@@ -665,7 +724,7 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     }`}
                   >
                     <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                    <span>{isOutOfStock ? 'Habis' : '+'}</span>
+                    <span>{isOutOfStock ? t('catalog.outOfStock', 'Habis') : '+'}</span>
                   </button>
                 </div>
               </div>
@@ -715,12 +774,14 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                       </div>
                       <div>
                         <div className="font-bold text-slate-900 dark:text-slate-100">{p.name}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">Satuan: {p.unit}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                          {t('catalog.unitPrefix', 'Satuan: {{unit}}', { unit: translateUnit(p.unit) })}
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-theme-light text-theme-text border border-theme-border">
-                        {p.category}
+                        {translateCategory(p.category)}
                       </span>
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">{p.sku}</td>
@@ -735,11 +796,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                               : 'text-slate-800 dark:text-slate-200'
                           }`}
                         >
-                          {availableStock <= 0 ? 'Habis' : `${availableStock} ${p.unit}`}
+                          {availableStock <= 0 ? t('catalog.outOfStock', 'Habis') : `${availableStock} ${translateUnit(p.unit)}`}
                         </span>
                         {inCartQty > 0 && (
                           <span className="text-[10px] text-theme-primary font-bold">
-                            ({inCartQty} di kasir)
+                            {t('catalog.inCartParen', '({{count}} di kasir)', { count: inCartQty })}
                           </span>
                         )}
                       </div>
@@ -759,9 +820,13 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                         title={
                           availableStock <= 0
                             ? inCartQty > 0
-                              ? `Semua stok (${p.stock} ${p.unit}) sudah di keranjang`
-                              : 'Stok produk habis'
-                            : `Tambah ${p.name} ke keranjang kasir`
+                              ? t(
+                                  'catalog.allInCartShortTooltip',
+                                  'Semua stok ({{stock}} {{unit}}) sudah di keranjang',
+                                  { stock: p.stock, unit: translateUnit(p.unit) }
+                                )
+                              : t('catalog.outOfStockShortTooltip', 'Stok produk habis')
+                            : t('catalog.addToCartTooltip', 'Tambah {{name}} ke keranjang kasir', { name: p.name })
                         }
                         className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all inline-flex items-center gap-1.5 shrink-0 ${
                           availableStock <= 0
@@ -770,7 +835,13 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                         }`}
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
-                        <span>{availableStock <= 0 ? 'Habis' : inCartQty > 0 ? `+ (${inCartQty})` : '+ Kasir'}</span>
+                        <span>
+                          {availableStock <= 0
+                            ? t('catalog.outOfStock', 'Habis')
+                            : inCartQty > 0
+                            ? t('catalog.addToCartWithCount', '+ ({{count}})', { count: inCartQty })
+                            : t('catalog.addToCartShort', '+ Kasir')}
+                        </span>
                       </button>
                     </td>
                   </tr>
@@ -785,15 +856,21 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       {filtered.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-800">
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            Menampilkan <span className="font-bold text-slate-800 dark:text-slate-200">{displayedProducts.length}</span> dari{' '}
-            <span className="font-bold text-slate-800 dark:text-slate-200">{filtered.length}</span> Produk • Halaman{' '}
-            <span className="font-bold text-slate-800 dark:text-slate-200">{currentPage}</span> dari {totalPages}
+            {t('catalog.paginationShowing', 'Menampilkan')}{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{displayedProducts.length}</span>{' '}
+            {t('catalog.paginationOf', 'dari')}{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{filtered.length}</span>{' '}
+            {t('catalog.paginationProducts', 'Produk')} • {t('catalog.paginationPage', 'Halaman')}{' '}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{currentPage}</span>{' '}
+            {t('catalog.paginationOf', 'dari')} {totalPages}
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
+              aria-label={t('catalog.prevPage', 'Sebelumnya')}
+              title={t('catalog.prevPage', 'Sebelumnya')}
               className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -822,6 +899,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
+              aria-label={t('catalog.nextPage', 'Selanjutnya')}
+              title={t('catalog.nextPage', 'Selanjutnya')}
               className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
