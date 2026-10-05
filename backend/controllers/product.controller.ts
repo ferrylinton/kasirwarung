@@ -12,10 +12,15 @@ export const ProductSchema = z.object({
   stock: z.number().int().nonnegative('Stok tidak boleh negatif'),
   unit: z.string().min(1, 'Satuan produk wajib diisi (e.g. pcs, kg, bks)'),
   minStock: z.number().int().nonnegative('Batas stok minimal tidak boleh negatif').default(5),
-  description: z.string().optional().default(''),
 });
 
 const escapeSearchRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const stripDescription = (p: any) => {
+  if (!p) return p;
+  const { description, ...rest } = p;
+  return rest;
+};
 
 export async function searchProducts(req: any, res: Response) {
   try {
@@ -38,7 +43,6 @@ export async function searchProducts(req: any, res: Response) {
         { name: { $regex: safeQ, $options: 'i' } },
         { sku: { $regex: safeQ, $options: 'i' } },
         { category: { $regex: safeQ, $options: 'i' } },
-        { description: { $regex: safeQ, $options: 'i' } },
       ];
     }
 
@@ -52,7 +56,7 @@ export async function searchProducts(req: any, res: Response) {
       success: true,
       query: q,
       count: products.length,
-      products,
+      products: products.map(stripDescription),
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Gagal mencari produk: ' + err.message });
@@ -83,7 +87,6 @@ export async function getProducts(req: any, res: Response) {
         { name: { $regex: safeQ, $options: 'i' } },
         { sku: { $regex: safeQ, $options: 'i' } },
         { category: { $regex: safeQ, $options: 'i' } },
-        { description: { $regex: safeQ, $options: 'i' } },
       ];
     }
 
@@ -97,7 +100,7 @@ export async function getProducts(req: any, res: Response) {
     res.json({
       success: true,
       count: products.length,
-      products,
+      products: products.map(stripDescription),
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -116,7 +119,7 @@ export async function createProduct(req: any, res: Response) {
     }
 
     const tenantId = req.user.tenantId;
-    const { name, sku, category, price, costPrice, stock, unit, minStock, description } = parsed.data;
+    const { name, sku, category, price, costPrice, stock, unit, minStock } = parsed.data;
 
     const existingSku = await productsCol.findOne({
       tenantId,
@@ -138,7 +141,6 @@ export async function createProduct(req: any, res: Response) {
       stock,
       unit,
       minStock,
-      description,
       imageUrl: req.body.imageUrl || `https://picsum.photos/seed/${sku}/300/300`,
       isPopular: false,
       createdAt: new Date().toISOString(),
@@ -188,7 +190,7 @@ export async function updateProduct(req: any, res: Response) {
       });
     }
 
-    const { name, sku, category, price, costPrice, stock, unit, minStock, description } = parsed.data;
+    const { name, sku, category, price, costPrice, stock, unit, minStock } = parsed.data;
 
     const updateData: any = {
       name,
@@ -199,11 +201,14 @@ export async function updateProduct(req: any, res: Response) {
       stock,
       unit,
       minStock,
-      description,
     };
     if (req.body.imageUrl) updateData.imageUrl = req.body.imageUrl;
 
-    await productsCol.updateOne({ id: req.params.id }, { $set: updateData });
+    await productsCol.updateOne({ id: req.params.id }, { $set: updateData, $unset: { description: '' } });
+
+    // Clean up description if present
+    const updatedProduct = { ...product, ...updateData };
+    delete (updatedProduct as any).description;
 
     await recordActivityLog({
       tenantId: req.user.tenantId,
@@ -220,7 +225,7 @@ export async function updateProduct(req: any, res: Response) {
     res.json({
       success: true,
       message: `Data produk "${name}" berhasil diperbarui di MongoDB!`,
-      product: { ...product, ...updateData },
+      product: updatedProduct,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Gagal memperbarui produk: ' + err.message });

@@ -15,6 +15,9 @@ import {
   ArrowRight,
   Bookmark,
   Clock,
+  Banknote,
+  QrCode,
+  CreditCard,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Product, PaymentMethod } from '../../types';
@@ -489,16 +492,35 @@ export const CartView: React.FC<CartViewProps> = ({
   }, [total]);
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 dark:bg-slate-950 p-2 sm:p-4 md:p-6 transition-colors">
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 dark:bg-slate-950 p-3 sm:p-5 md:p-6 transition-colors">
       <div className="max-w-4xl mx-auto w-full space-y-4">
         {/* Single-Column Unified Card */}
-        <div className="bg-white dark:bg-slate-900 overflow-hidden flex flex-col transition-colors">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition-colors">
           {/* Order Header */}
-          <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-                Nota #TRX-2024-0891
-              </span>
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-9 h-9 rounded-xl bg-theme-light text-theme-primary flex items-center justify-center shrink-0 shadow-2xs">
+                <Calculator className="w-4 h-4 stroke-[2.25]" />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+                    {t('pos.cartTitle', 'Keranjang Transaksi')}
+                  </span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                    {items.length > 0
+                      ? t('pos.itemsVarietyAndCount', {
+                          varieties: items.length,
+                          count: itemCount,
+                          defaultValue: `${items.length} macam (${itemCount} pcs)`,
+                        })
+                      : t('pos.emptyBadge', 'Kosong')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  {tenant?.name || 'KasirWarung'} • {t('pos.cashierLabel', 'Kasir')}: {user?.name || 'Petugas'}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -506,18 +528,35 @@ export const CartView: React.FC<CartViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSavedOrdersListModalOpen(true)}
-                  className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Buka daftar pesanan yang ditahan [F9]"
+                  className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title={t('pos.savedOrdersTitle', 'Buka daftar pesanan yang ditahan [F9]')}
                 >
                   <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                  <span>Pesanan Tersimpan ({savedOrders.length})</span>
+                  <span>
+                    {t('pos.savedOrdersBtn', {
+                      count: savedOrders.length,
+                      defaultValue: `Pesanan Tersimpan (${savedOrders.length})`,
+                    })}
+                  </span>
+                </button>
+              )}
+
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-50/70 hover:bg-rose-100/70 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 border border-rose-200/80 dark:border-rose-900/50 px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                  title={t('pos.clearCartTooltip', 'Kosongkan keranjang transaksi')}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('pos.clearCart', 'Kosongkan')}</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* 2. Live Search & Scan Barcode */}
-          <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/60 relative" ref={searchContainerRef}>
+          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/60 relative" ref={searchContainerRef}>
             <div className="relative">
               {isSearchLoading ? (
                 <Loader2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-primary animate-spin" />
@@ -540,7 +579,7 @@ export const CartView: React.FC<CartViewProps> = ({
                 }}
                 onKeyDown={handleSearchInputKeyDown}
                 placeholder={t('pos.searchPlaceholder', 'Cari sembako / scan barcode (Tekan F2)...')}
-                className="w-full pl-10 pr-20 py-2.5 sm:py-3 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] transition-all shadow-xs"
+                className="w-full pl-10 pr-20 py-2.5 sm:py-3 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] transition-all shadow-2xs"
               />
 
               {/* Clear & Barcode Action Buttons inside Input */}
@@ -550,7 +589,7 @@ export const CartView: React.FC<CartViewProps> = ({
                     type="button"
                     onClick={handleClearSearch}
                     className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                    title="Hapus pencarian"
+                    title={t('pos.clearSearchTooltip', 'Hapus pencarian')}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -560,7 +599,7 @@ export const CartView: React.FC<CartViewProps> = ({
                   type="button"
                   onClick={handleBarcodeClick}
                   className="p-1.5 rounded-lg text-slate-400 dark:text-slate-400 hover:text-theme-primary hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title={t('pos.scanBarcode', 'Tekan F2 untuk Scan Barcode')}
+                  title={t('pos.scanBarcodeTooltip', 'Tekan F2 untuk Scan Barcode')}
                 >
                   <ScanBarcode className="w-4 h-4" />
                 </button>
@@ -569,17 +608,21 @@ export const CartView: React.FC<CartViewProps> = ({
 
             {/* Live Search Dropdown Panel */}
             {isSearchDropdownOpen && searchQuery.trim().length > 0 && (
-              <div className="absolute top-full left-3.5 right-3.5 mt-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-50 animate-in fade-in-80 zoom-in-95">
+              <div className="absolute top-full left-4 right-4 sm:left-6 sm:right-6 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-50 animate-in fade-in-80 zoom-in-95">
                 {/* Header */}
                 <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-700 dark:text-slate-200">Hasil Pencarian Produk</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                      {t('pos.searchResultsHeader', 'Hasil Pencarian Produk')}
+                    </span>
                     <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
                       {searchResults.length}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <span className="hidden sm:inline">Navigasi: ↑↓ Enter untuk tambah</span>
+                    <span className="hidden sm:inline">
+                      {t('pos.searchNavHint', 'Navigasi: ↑↓ Enter untuk tambah')}
+                    </span>
                     <button
                       onClick={() => setIsSearchDropdownOpen(false)}
                       className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -594,24 +637,32 @@ export const CartView: React.FC<CartViewProps> = ({
                   {isSearchLoading && searchResults.length === 0 ? (
                     <div className="p-6 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 text-theme-primary animate-spin" />
-                      <span>Mencari di database sembako...</span>
+                      <span>{t('pos.searchingDatabase', 'Mencari di database sembako...')}</span>
                     </div>
                   ) : searchResults.length === 0 ? (
                     <div className="p-6 text-center">
                       <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
                         <AlertCircle className="w-5 h-5" />
                       </div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Tidak Ada Produk Ditemukan</p>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {t('pos.noProductFound', 'Tidak Ada Produk Ditemukan')}
+                      </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
-                        Tidak ada sembako yang cocok dengan &quot;{searchQuery}&quot;. Periksa kembali SKU atau nama barang.
+                        {t('pos.noProductFoundDesc', {
+                          query: searchQuery,
+                          defaultValue: `Tidak ada sembako yang cocok dengan "${searchQuery}". Periksa kembali SKU atau nama barang.`,
+                        })}
                       </p>
                     </div>
                   ) : (
                     searchResults.map((product, idx) => {
                       const isSelected = searchSelectedIndex === idx;
                       const isJustAdded = addedProductId === product.id;
-                      const isOutOfStock = product.stock <= 0;
-                      const isLowStock = !isOutOfStock && product.stock <= product.minStock;
+                      const inCartItem = items.find((it) => it.product.id === product.id);
+                      const inCartQty = inCartItem?.qty || 0;
+                      const availableStock = Math.max(0, product.stock - inCartQty);
+                      const isOutOfStock = availableStock <= 0;
+                      const isLowStock = !isOutOfStock && availableStock <= product.minStock;
 
                       return (
                         <div
@@ -662,8 +713,21 @@ export const CartView: React.FC<CartViewProps> = ({
                                       : 'text-theme-primary'
                                   }`}
                                 >
-                                  {isOutOfStock ? 'Habis' : `Stok: ${product.stock} ${product.unit || 'pcs'}`}
+                                  {isOutOfStock
+                                    ? inCartQty > 0
+                                      ? t('pos.outOfStockInCart', 'Habis (di keranjang)')
+                                      : t('pos.outOfStock', 'Habis')
+                                    : t('pos.remainingStock', {
+                                        count: availableStock,
+                                        unit: product.unit || 'pcs',
+                                        defaultValue: `Sisa: ${availableStock} ${product.unit || 'pcs'}`,
+                                      })}
                                 </span>
+                                {inCartQty > 0 && availableStock > 0 && (
+                                  <span className="text-[10px] text-theme-primary font-bold">
+                                    {t('pos.inCartIndicator', { count: inCartQty, defaultValue: `(${inCartQty} di kasir)` })}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -679,14 +743,23 @@ export const CartView: React.FC<CartViewProps> = ({
                               type="button"
                               disabled={isOutOfStock}
                               onClick={(e) => handleAddToCart(e, product)}
-                              className={`p-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                                isJustAdded
+                              className={`p-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center ${
+                                isOutOfStock
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50 shadow-none'
+                                  : isJustAdded
                                   ? 'btn-theme-primary shadow-xs'
-                                  : isOutOfStock
-                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-50'
-                                  : 'btn-theme-primary shadow-xs'
+                                  : 'btn-theme-primary shadow-xs cursor-pointer'
                               }`}
-                              title={isOutOfStock ? 'Stok habis' : 'Tambah ke pesanan kasir'}
+                              title={
+                                isOutOfStock
+                                  ? inCartQty > 0
+                                    ? t('pos.allInCartTooltip', {
+                                        count: product.stock,
+                                        defaultValue: `Semua stok (${product.stock}) sudah ada di keranjang`,
+                                      })
+                                    : t('pos.outOfStockWarning', 'Stok produk habis!')
+                                  : t('pos.addToOrderTooltip', 'Tambah ke pesanan kasir')
+                              }
                             >
                               {isJustAdded ? (
                                 <Check className="w-4 h-4 stroke-[3]" />
@@ -712,7 +785,7 @@ export const CartView: React.FC<CartViewProps> = ({
                         }}
                         className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        <span>Buka Semua Hasil di Katalog Produk</span>
+                        <span>{t('pos.viewAllInCatalog', 'Buka Semua Hasil di Katalog Produk')}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -722,7 +795,7 @@ export const CartView: React.FC<CartViewProps> = ({
             </div>
 
           {/* 3. Cart Items List */}
-          <div className="min-h-[220px] max-h-[460px]  overflow-y-auto p-4 sm:p-5 divide-y divide-slate-100 dark:divide-slate-800 transition-colors p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 min-h-[220px] max-h-[460px] overflow-y-auto">
             {items.length === 0 ? (
               <div className="py-12 sm:py-16 flex flex-col items-center justify-center text-center">
                 <div className="w-14 h-14 rounded-2xl bg-theme-light border border-theme-border text-theme-primary flex items-center justify-center mb-3 shadow-2xs">
@@ -734,127 +807,205 @@ export const CartView: React.FC<CartViewProps> = ({
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
                   {t('pos.emptyCartDesc', 'Pilih sembako di katalog atau scan barcode di atas untuk menambahkan pesanan.')}
                 </p>
+                {onNavigateToCatalog && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToCatalog}
+                    className="mt-4 px-4 py-2 rounded-xl text-xs font-bold btn-theme-primary shadow-xs flex items-center gap-1.5 transition-transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    <span>{t('pos.openCatalogBtn', 'Buka Katalog Sembako')}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             ) : (
-              items.map((it) => (
-                <div
-                  key={it.product.id}
-                  className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
-                      {it.product.imageUrl ? (
-                        <img
-                          src={it.product.imageUrl}
-                          alt={it.product.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <Package className="w-5 h-5 text-slate-400" />
-                      )}
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                {items.map((it) => (
+                  <div
+                    key={it.product.id}
+                    className="py-3 sm:py-3.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-slate-50/60 dark:hover:bg-slate-850/40 rounded-xl px-2.5 -mx-2.5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        {it.product.imageUrl ? (
+                          <img
+                            src={it.product.imageUrl}
+                            alt={it.product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <Package className="w-5 h-5 text-slate-400" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {it.product.name}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                          <span>@ Rp {it.product.price.toLocaleString('id-ID')}</span>
+                          <span className="text-slate-300 dark:text-slate-700">•</span>
+                          <span>/{it.product.unit || 'pcs'}</span>
+                          {it.product.stock !== undefined && (
+                            <>
+                              <span className="text-slate-300 dark:text-slate-700">•</span>
+                              <span className="text-[11px] text-slate-400">
+                                {t('pos.remainingOnShelf', {
+                                  remaining: Math.max(0, it.product.stock - it.qty),
+                                  total: it.product.stock,
+                                  defaultValue: `Sisa di rak: ${Math.max(0, it.product.stock - it.qty)} (Total: ${it.product.stock})`,
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                        {it.product.name}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
+                      {/* Quantity adjusters */}
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 shrink-0 border border-slate-200/60 dark:border-slate-700/60">
+                        <button
+                          type="button"
+                          onClick={() => updateQty(it.product.id, it.qty - 1)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer"
+                          title={t('pos.decreaseQty', 'Kurangi kuantitas')}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs sm:text-sm font-bold font-mono px-2 min-w-[32px] text-center text-slate-900 dark:text-slate-100">
+                          {it.qty}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={it.qty >= it.product.stock}
+                          onClick={() => updateQty(it.product.id, it.qty + 1)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={it.qty >= it.product.stock ? t('pos.maxStockReached', 'Maksimal stok tercapai') : t('pos.increaseQty', 'Tambah kuantitas')}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                        @ Rp {it.product.price.toLocaleString('id-ID')} / {it.product.unit || 'pcs'}
+
+                      {/* Subtotal & Delete */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 font-mono min-w-[96px] text-right">
+                          Rp {it.subtotal.toLocaleString('id-ID')}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(it.product.id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title={t('pos.removeItemTooltip', 'Hapus barang dari keranjang')}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
-                    {/* Quantity adjusters */}
-                    <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 shrink-0 border border-slate-200/60 dark:border-slate-700/60">
-                      <button
-                        type="button"
-                        onClick={() => updateQty(it.product.id, it.qty - 1)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer"
-                        title="Kurangi kuantitas"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-xs sm:text-sm font-bold font-mono px-2 min-w-[28px] text-center text-slate-900 dark:text-slate-100">
-                        {it.qty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateQty(it.product.id, it.qty + 1)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shadow-2xs cursor-pointer"
-                        title="Tambah kuantitas"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Subtotal & Delete */}
-                    <div className="flex items-center gap-2.5">
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 font-mono min-w-[90px] text-right">
-                        Rp {it.subtotal.toLocaleString('id-ID')}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(it.product.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Hapus barang dari keranjang"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
 
-          {/* 4. Calculation & Payment Area (Unified Below Items List in One Column) */}
-     
+          {/* 4. Calculation & Payment Area */}
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 bg-slate-50/50 dark:bg-slate-850/40">
             {/* Total Display Box */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
               <div>
-                <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400">
-                  Total Belanja ({itemCount} item)
+                <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 block">
+                  {t('pos.totalBill', 'Total Tagihan Belanja')}
+                </span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  {t('pos.itemsBreakdown', {
+                    count: itemCount,
+                    varieties: items.length,
+                    defaultValue: `${itemCount} item (${items.length} macam produk)`,
+                  })}
                 </span>
               </div>
-              <div className="text-xl  font-black text-theme-primary font-mono text-right">
+              <div className="text-2xl sm:text-3xl font-black text-theme-primary font-mono text-left sm:text-right tracking-tight">
                 Rp {total.toLocaleString('id-ID')}
               </div>
             </div>
 
-            {/* Nominal Cepat (Tender Tunai) */}
-            {paymentMethod === 'TUNAI' && (
-              <div className="space-y-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-700/80">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Nominal Cepat (Tender Tunai):
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => applyQuickTender('UANG_PAS')}
-                    className="py-2 px-3 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs hover:border-theme-primary hover:bg-theme-light text-slate-800 dark:text-slate-100 transition-all cursor-pointer text-center"
-                  >
-                    Uang Pas [F8]
-                  </button>
-                  {quickTenderSuggestions.map((suggestion) => (
+            {/* Metode Pembayaran (Payment Method Selection) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                Metode Pembayaran
+              </label>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {[
+                  { id: 'TUNAI' as PaymentMethod, label: 'Tunai (Cash)', icon: Banknote },
+                  { id: 'QRIS' as PaymentMethod, label: 'QRIS (Instan)', icon: QrCode },
+                  { id: 'TRANSFER' as PaymentMethod, label: 'Transfer Bank', icon: CreditCard },
+                ].map((pm) => {
+                  const Icon = pm.icon;
+                  const isSelected = paymentMethod === pm.id;
+                  return (
                     <button
-                      key={suggestion}
+                      key={pm.id}
                       type="button"
-                      onClick={() => applyQuickTender(suggestion)}
-                      className="py-2 px-3 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs hover:border-theme-primary hover:bg-theme-light text-slate-800 dark:text-slate-100 transition-all font-mono cursor-pointer text-center"
+                      onClick={() => {
+                        setPaymentMethod(pm.id);
+                        if (pm.id !== 'TUNAI') {
+                          setTenderAmount(total);
+                        }
+                      }}
+                      className={`p-3 rounded-xl border text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs ${
+                        isSelected
+                          ? 'border-theme-primary bg-theme-light text-theme-text ring-2 ring-[var(--theme-ring)]/40'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
                     >
-                      Rp {suggestion.toLocaleString('id-ID')}
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{pm.label}</span>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tunai Handling: Nominal Cepat & Kembalian */}
+            {paymentMethod === 'TUNAI' ? (
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Nominal Cepat (Tender Tunai)
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      F8: Uang Pas
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyQuickTender('UANG_PAS')}
+                      className="py-2.5 px-3 text-xs font-bold bg-slate-50 hover:bg-theme-light dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 hover:border-theme-primary rounded-xl shadow-2xs text-slate-800 dark:text-slate-100 transition-all cursor-pointer text-center"
+                    >
+                      Uang Pas [F8]
+                    </button>
+                    {quickTenderSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => applyQuickTender(suggestion)}
+                        className="py-2.5 px-3 text-xs font-bold bg-slate-50 hover:bg-theme-light dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 hover:border-theme-primary rounded-xl shadow-2xs text-slate-800 dark:text-slate-100 transition-all font-mono cursor-pointer text-center"
+                      >
+                        Rp {suggestion.toLocaleString('id-ID')}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Diterima & Kembalian */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-1">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
                       Uang Diterima (Rp)
                     </label>
                     <input
@@ -862,43 +1013,57 @@ export const CartView: React.FC<CartViewProps> = ({
                       value={tenderAmount || ''}
                       onChange={(e) => setTenderAmount(Number(e.target.value))}
                       placeholder="Masukkan nominal uang..."
-                      className="w-full px-3.5 py-2.5 text-sm font-mono font-bold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] shadow-2xs transition-all"
+                      className="w-full px-3.5 py-2.5 text-sm font-mono font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-850 focus:border-theme-primary focus:outline-hidden focus:ring-2 focus:ring-[var(--theme-ring)] shadow-2xs transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
                       Kembalian Kasir
                     </label>
-                    <div className="px-3.5 py-2.5 text-sm font-mono font-black text-theme-text bg-theme-light border border-theme-border rounded-xl flex items-center justify-between shadow-2xs">
+                    <div className="px-3.5 py-2.5 text-sm font-mono font-black text-theme-text bg-theme-light border border-theme-border rounded-xl flex items-center justify-between shadow-2xs min-h-[42px]">
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Kembali:</span>
                       <span className="text-base sm:text-lg">Rp {change.toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                 </div>
               </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                    Pembayaran Non-Tunai ({paymentMethod})
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Pelanggan membayar pas sebesar Rp {total.toLocaleString('id-ID')}. Pastikan bukti pembayaran telah terverifikasi sebelum cetak struk.
+                  </span>
+                </div>
+              </div>
             )}
 
             {/* Action Submit Buttons */}
-            <div className="space-y-2.5 pt-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="space-y-3 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 <button
                   type="button"
                   disabled={items.length === 0}
                   onClick={() => setIsSaveOrderModalOpen(true)}
                   className="py-2.5 px-3 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                  title="Simpan pesanan sebelum dibayar"
+                  title="Simpan pesanan sebelum dibayar [F7]"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
-                  <span>Simpan Pesanan</span>
+                  <span>Simpan Pesanan [F7]</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsSavedOrdersListModalOpen(true)}
                   className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                  title="Lihat daftar pesanan yang ditahan"
+                  title="Lihat daftar pesanan yang ditahan [F9]"
                 >
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Tersimpan {savedOrders.length > 0 ? `(${savedOrders.length})` : ''}</span>
+                  <span>Tersimpan {savedOrders.length > 0 ? `(${savedOrders.length})` : ''} [F9]</span>
                 </button>
                 <button
                   type="button"
@@ -908,7 +1073,7 @@ export const CartView: React.FC<CartViewProps> = ({
                   title="Hapus semua barang pesanan di keranjang"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-                  <span>Hapus Semua Pesanan</span>
+                  <span>Hapus Semua</span>
                 </button>
               </div>
 
@@ -916,23 +1081,28 @@ export const CartView: React.FC<CartViewProps> = ({
                 type="button"
                 disabled={items.length === 0 || isProcessingOrder}
                 onClick={handleCheckout}
-                className="w-full py-3.5 sm:py-4 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm sm:text-base rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
+                className="w-full py-4 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm sm:text-base rounded-2xl shadow-md flex items-center justify-center gap-2.5 transition-all cursor-pointer active:scale-[0.99]"
               >
-                <Printer className="w-5 h-5" />
-                <span>
-                  {isProcessingOrder
-                    ? t('pos.processingPayment', 'Memproses Transaksi...')
-                    : t('pos.payBtn', 'Selesaikan & Cetak Nota')}
-                </span>
+                {isProcessingOrder ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>{t('pos.processingPayment', 'Memproses Transaksi...')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer className="w-5 h-5" />
+                    <span>{t('pos.payBtn', 'Selesaikan & Cetak Nota')}</span>
+                  </>
+                )}
               </button>
 
               {/* Thermal Printer Ready Status */}
-              <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 pt-1">
+              <div className="text-center text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Printer Thermal Siap • Format Struk 58mm / 80mm</span>
               </div>
             </div>
-          
+          </div>
         </div>
       </div>
 
@@ -988,5 +1158,3 @@ export const CartView: React.FC<CartViewProps> = ({
     </div>
   );
 };
-
-export const CashierView = CartView;

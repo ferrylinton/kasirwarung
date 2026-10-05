@@ -9,7 +9,6 @@ export interface Product {
   stock: number;
   unit: string;
   minStock: number;
-  description: string;
   imageUrl: string;
   isPopular?: boolean;
   createdAt?: string;

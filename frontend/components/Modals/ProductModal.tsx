@@ -15,7 +15,6 @@ const ProductFormSchema = z.object({
   stock: z.number({ error: 'Stok harus berupa angka' }).int('Stok harus bilangan bulat').nonnegative('Stok tidak boleh negatif'),
   unit: z.string().min(1, 'Satuan wajib diisi (contoh: kg, bks, botol, karung)'),
   minStock: z.number({ error: 'Batas minimal harus angka' }).int().nonnegative('Batas minimal tidak boleh negatif'),
-  description: z.string().default(''),
 });
 
 const CATEGORIES = [
@@ -57,7 +56,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     stock: '',
     unit: 'bks',
     minStock: '5',
-    description: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -76,7 +74,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         stock: product.stock.toString(),
         unit: product.unit,
         minStock: product.minStock.toString(),
-        description: product.description || '',
       });
     } else {
       setFormData({
@@ -88,7 +85,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         stock: '10',
         unit: 'bks',
         minStock: '5',
-        description: '',
       });
     }
     setErrors({});
@@ -108,7 +104,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       stock: Number(formData.stock),
       unit: formData.unit.trim(),
       minStock: Number(formData.minStock || '5'),
-      description: formData.description.trim(),
     };
 
     const result = ProductFormSchema.safeParse(parsedValues);
@@ -291,6 +286,22 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   }`}
                 />
                 {errors.unit && <p className="text-xs text-rose-500 mt-1">{errors.unit}</p>}
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {['bks', 'pcs', 'kg', 'dus', 'rcg', 'btl', 'sachet', 'karung', 'ltr'].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, unit: s })}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-md border transition-colors cursor-pointer ${
+                        formData.unit?.toLowerCase() === s
+                          ? 'bg-theme-light text-theme-primary border-theme-border font-bold'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Min Stock */}
@@ -304,20 +315,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
                   placeholder="5"
                   className="w-full px-3.5 py-2 text-sm font-mono rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all"
-                />
-              </div>
-
-              {/* Description */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Keterangan / Deskripsi Ringkas
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Catatan kemasan, kualitas atau info grosir..."
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all"
                 />
               </div>
             </div>

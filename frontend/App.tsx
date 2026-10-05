@@ -14,6 +14,7 @@ import {
   ProductCatalogPage,
   ProductManagementPage,
   CategoryManagementPage,
+  UnitManagementPage,
   POSPage,
   SalesHistoryPage,
   AdminDashboardPage,
@@ -249,6 +250,7 @@ export default function App() {
           products={products}
           onRefreshProducts={fetchProducts}
           onNavigateToCategories={() => setCurrentTab('category-management')}
+          onNavigateToUnits={() => setCurrentTab('unit-management')}
         />
       )}
 
@@ -257,6 +259,15 @@ export default function App() {
           products={products}
           onRefreshProducts={fetchProducts}
           onNavigateToProducts={() => setCurrentTab('product-management')}
+        />
+      )}
+
+      {currentTab === 'unit-management' && (
+        <UnitManagementPage
+          products={products}
+          onRefreshProducts={fetchProducts}
+          onNavigateToProducts={() => setCurrentTab('product-management')}
+          onNavigateToCatalog={() => setCurrentTab('catalog')}
         />
       )}
 

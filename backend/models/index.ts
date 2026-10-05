@@ -1,6 +1,19 @@
 export type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';
 export type TenantStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'INACTIVE';
 export type PaymentMethod = 'TUNAI' | 'QRIS' | 'TRANSFER' | 'KASBON';
+export type UnitCategory = 'ECERAN' | 'KEMASAN' | 'TIMBANGAN' | 'VOLUME' | 'IKATAN' | 'LAINNYA';
+
+export interface UnitDoc {
+  id: string;
+  tenantId: string;
+  name: string;
+  symbol: string;
+  category: UnitCategory;
+  description?: string;
+  isDefault?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
 
 export interface TenantDeactivationRequest {
   id: string;
@@ -54,7 +67,6 @@ export interface ProductDoc {
   stock: number;
   unit: string;
   minStock: number;
-  description: string;
   imageUrl: string;
   isPopular?: boolean;
   createdAt: string;

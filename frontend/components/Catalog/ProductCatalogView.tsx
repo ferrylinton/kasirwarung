@@ -10,9 +10,6 @@ import {
   ArrowUpDown,
   LayoutGrid,
   List,
-  MoreVertical,
-  Edit2,
-  Trash2,
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
@@ -49,10 +46,19 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { user, tenant, token } = useAuthStore();
-  const { addItem } = useCartStore();
+  const { addItem, items } = useCartStore();
   const { addToast } = useToastStore();
 
   const isManager = user?.role === 'MANAGER';
+
+  // Map of product ID -> quantity currently in active cart
+  const cartQtyMap = React.useMemo(() => {
+    const map: { [id: string]: number } = {};
+    items.forEach((it) => {
+      map[it.product.id] = (map[it.product.id] || 0) + it.qty;
+    });
+    return map;
+  }, [items]);
 
   // Filters & State
   const [selectedCategory, setSelectedCategory] = useState('Semua Produk');
@@ -84,7 +90,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // Categories list with dynamic counts
   const categoriesMap: { [cat: string]: number } = {};
@@ -131,20 +136,28 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
   );
 
   const handleAddToCart = (p: Product) => {
-    if (p.stock <= 0) {
+    const inCart = cartQtyMap[p.id] || 0;
+    const remaining = p.stock - inCart;
+
+    if (remaining <= 0) {
       addToast({
         type: 'warning',
-        title: 'Stok Kosong',
-        message: `${p.name} habis, perlu restock.`,
+        title: 'Stok Habis di Kasir',
+        message: `Maksimal stok tercapai. Seluruh ${p.stock} ${p.unit} "${p.name}" sudah ada di keranjang kasir.`,
       });
       return;
     }
+
     const success = addItem(p, 1);
     if (success) {
+      const newRemaining = remaining - 1;
       addToast({
         type: 'success',
         title: 'Ditambah ke Kasir',
-        message: `${p.name} dimasukkan ke keranjang kasir.`,
+        message:
+          newRemaining === 0
+            ? `"${p.name}" dimasukkan ke kasir. Seluruh stok (${p.stock} ${p.unit}) kini telah di keranjang.`
+            : `"${p.name}" dimasukkan ke kasir (Sisa stok: ${newRemaining} ${p.unit}).`,
         duration: 2000,
       });
     } else {
@@ -557,8 +570,10 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {displayedProducts.map((p, idx) => {
-            const isLowStock = p.stock <= p.minStock && p.stock > 0;
-            const isOutOfStock = p.stock <= 0;
+            const inCartQty = cartQtyMap[p.id] || 0;
+            const availableStock = Math.max(0, p.stock - inCartQty);
+            const isLowStock = availableStock <= p.minStock && availableStock > 0;
+            const isOutOfStock = availableStock <= 0;
             const isEven = idx % 2 === 1;
 
             return (
@@ -570,57 +585,6 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800'
                 }`}
               >
-                {/* Card Top: Category Pill & 3-Dots Action Menu */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold text-theme-text bg-theme-light border border-theme-border px-2 py-0.5 rounded-md">
-                    {p.category}
-                  </span>
-
-                  {isManager && (
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId(activeMenuId === p.id ? null : p.id);
-                        }}
-                        className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      {activeMenuId === p.id && (
-                        <div
-                          className="absolute right-0 top-6 w-36 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-100 dark:border-slate-800 py-1 z-20"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => {
-                              setActiveMenuId(null);
-                              setEditingProduct(p);
-                              setIsProductModalOpen(true);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Ubah Data</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveMenuId(null);
-                              setDeletingProduct(p);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Hapus Produk</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
                 {/* Product Photo */}
                 <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800/80 mb-3 border border-slate-100 dark:border-slate-800">
                   <img
@@ -629,6 +593,11 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
+                  {inCartQty > 0 && (
+                    <div className="absolute top-2 right-2 bg-theme-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
+                      <span>{inCartQty} di kasir</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* SKU and Stock Indicator */}
@@ -637,51 +606,66 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                   <span
                     className={`font-semibold flex items-center gap-1 ${
                       isOutOfStock
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : isLowStock
                         ? 'text-rose-600 dark:text-rose-400 font-bold'
+                        : isLowStock
+                        ? 'text-amber-600 dark:text-amber-400 font-bold'
                         : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        isOutOfStock ? 'bg-rose-600' : isLowStock ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'
+                        isOutOfStock ? 'bg-rose-600' : isLowStock ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'
                       }`}
                     ></span>
                     {isOutOfStock
-                      ? 'Habis!'
+                      ? inCartQty > 0 ? 'Habis (di keranjang)' : 'Habis!'
                       : isLowStock
-                      ? `Stok: ${p.stock} ${p.unit} (Menipis!)`
-                      : `Stok: ${p.stock} ${p.unit}`}
+                      ? `Sisa: ${availableStock} ${p.unit} (Menipis!)`
+                      : `Sisa: ${availableStock} ${p.unit}`}
                   </span>
                 </div>
 
-                {/* Name & Description */}
+                {/* Name & Unit */}
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-theme-primary transition-colors">
                     {p.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 mb-3">
-                    {p.description || `Kemasan per ${p.unit} segar`}
+                    Satuan: {p.unit}
                   </p>
                 </div>
 
-                {/* Bottom: Harga Ecer & + Kasir Button */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 mt-auto">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Harga Ecer</span>
-                    <span className="text-sm font-black text-slate-900 dark:text-slate-100 font-mono">
+                {/* Bottom: Harga & Tombol Tambah ke Keranjang */}
+                <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800 mt-auto gap-2">
+                  <div className="flex flex-col justify-center min-w-0">
+                    <span className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 font-mono tracking-tight truncate">
                       Rp {p.price.toLocaleString('id-ID')}
                     </span>
                   </div>
 
                   <button
-                    onClick={() => handleAddToCart(p)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isOutOfStock) handleAddToCart(p);
+                    }}
                     disabled={isOutOfStock}
-                    className="min-w-24 flex items-center justify-center gap-1 bg-theme-light hover:btn-theme-primary text-theme-text hover:text-white border border-theme-border rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer"
+                    aria-disabled={isOutOfStock}
+                    title={
+                      isOutOfStock
+                        ? inCartQty > 0
+                          ? `Semua stok ${p.name} (${p.stock} ${p.unit}) sudah ada di keranjang kasir`
+                          : 'Stok produk habis (tidak dapat ditambah)'
+                        : `Tambah ${p.name} ke keranjang kasir`
+                    }
+                    className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                      isOutOfStock
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed pointer-events-none select-none shadow-none'
+                        : 'btn-theme-primary text-white shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer'
+                    }`}
                   >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span className="text-2xl">+</span>
+                    <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isOutOfStock ? 'Habis' : '+'}</span>
                   </button>
                 </div>
               </div>
@@ -704,6 +688,8 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {displayedProducts.map((p, idx) => {
+                const inCartQty = cartQtyMap[p.id] || 0;
+                const availableStock = Math.max(0, p.stock - inCartQty);
                 const isEven = idx % 2 === 1;
                 return (
                   <tr
@@ -715,14 +701,21 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     }`}
                   >
                     <td className="py-3 px-4 flex items-center gap-3">
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 shrink-0"
-                      />
+                      <div className="relative shrink-0">
+                        <img
+                          src={p.imageUrl}
+                          alt=""
+                          className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700"
+                        />
+                        {inCartQty > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 bg-theme-primary text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                            {inCartQty}
+                          </span>
+                        )}
+                      </div>
                       <div>
                         <div className="font-bold text-slate-900 dark:text-slate-100">{p.name}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">{p.description}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">Satuan: {p.unit}</div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -732,29 +725,52 @@ export const ProductCatalogView: React.FC<ProductCatalogViewProps> = ({
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">{p.sku}</td>
                     <td className="py-3 px-4">
-                      <span
-                        className={
-                          p.stock <= 0
-                            ? 'text-rose-600 dark:text-rose-400 font-bold'
-                            : p.stock <= p.minStock
-                            ? 'text-rose-600 dark:text-rose-400 font-bold'
-                            : 'text-slate-800 dark:text-slate-200'
-                        }
-                      >
-                        {p.stock} {p.unit}
-                      </span>
+                      <div className="flex flex-col">
+                        <span
+                          className={`font-semibold ${
+                            availableStock <= 0
+                              ? 'text-rose-600 dark:text-rose-400 font-bold'
+                              : availableStock <= p.minStock
+                              ? 'text-amber-600 dark:text-amber-400 font-bold'
+                              : 'text-slate-800 dark:text-slate-200'
+                          }`}
+                        >
+                          {availableStock <= 0 ? 'Habis' : `${availableStock} ${p.unit}`}
+                        </span>
+                        {inCartQty > 0 && (
+                          <span className="text-[10px] text-theme-primary font-bold">
+                            ({inCartQty} di kasir)
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-bold font-mono text-slate-900 dark:text-slate-100">
                       Rp {p.price.toLocaleString('id-ID')}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => handleAddToCart(p)}
-                        disabled={p.stock <= 0}
-                        className="px-3 py-1.5 bg-theme-light hover:btn-theme-primary text-theme-text hover:text-white border border-theme-border rounded-xl font-bold transition-all inline-flex items-center gap-1 shadow-2xs disabled:opacity-40 cursor-pointer"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (availableStock > 0) handleAddToCart(p);
+                        }}
+                        disabled={availableStock <= 0}
+                        aria-disabled={availableStock <= 0}
+                        title={
+                          availableStock <= 0
+                            ? inCartQty > 0
+                              ? `Semua stok (${p.stock} ${p.unit}) sudah di keranjang`
+                              : 'Stok produk habis'
+                            : `Tambah ${p.name} ke keranjang kasir`
+                        }
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all inline-flex items-center gap-1.5 shrink-0 ${
+                          availableStock <= 0
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed pointer-events-none select-none shadow-none'
+                            : 'bg-theme-light hover:btn-theme-primary text-theme-text hover:text-white border border-theme-border shadow-2xs cursor-pointer'
+                        }`}
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
-                        <span>+ Kasir</span>
+                        <span>{availableStock <= 0 ? 'Habis' : inCartQty > 0 ? `+ (${inCartQty})` : '+ Kasir'}</span>
                       </button>
                     </td>
                   </tr>

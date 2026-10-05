@@ -3,6 +3,7 @@ import systemRoutes from './system.routes.ts';
 import authRoutes from './auth.routes.ts';
 import productRoutes from './product.routes.ts';
 import categoryRoutes from './category.routes.ts';
+import unitRoutes from './unit.routes.ts';
 import orderRoutes from './order.routes.ts';
 import savedOrderRoutes from './savedOrder.routes.ts';
 import userRoutes from './user.routes.ts';
@@ -18,9 +19,10 @@ apiRouter.use('/', systemRoutes);
 // 2. Authentication & User Profile
 apiRouter.use('/auth', authRoutes);
 
-// 3. Products & Categories
+// 3. Products, Categories & Cashier Units
 apiRouter.use('/products', productRoutes);
 apiRouter.use('/categories', categoryRoutes);
+apiRouter.use('/units', unitRoutes);
 
 // 4. Orders & Saved Orders (Hold Orders)
 apiRouter.use('/orders', orderRoutes);

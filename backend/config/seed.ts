@@ -6,6 +6,7 @@ import {
   ordersCol,
   activityLogsCol,
   loginHistoryCol,
+  unitsCol,
 } from './db.ts';
 
 export async function seedMongoData() {
@@ -209,16 +210,15 @@ export async function seedMongoData() {
     unit: p.unit,
     minStock: p.min,
     isPopular: p.pop,
-    description: p.desc,
     imageUrl: `https://picsum.photos/seed/${p.sku}/300/300`,
     createdAt: new Date().toISOString(),
   }));
 
   const tenant2Products = [
-    { id: 'prod-madura-1', tenantId: tenant2.id, name: "Beras Pandan Wangi Premium 5kg", sku: "MDR-PW05", category: "Beras & Gandum", price: 78000, costPrice: 70000, stock: 20, unit: "karung", min: 5, description: "Beras pandan wangi warung Madura.", imageUrl: "https://picsum.photos/seed/MDR-PW05/300/300", createdAt: new Date().toISOString() },
-    { id: 'prod-madura-2', tenantId: tenant2.id, name: "Minyak Goreng SunCo 2L", sku: "MDR-SC02", category: "Minyak & Margarin", price: 38000, costPrice: 34000, stock: 30, unit: "pouch", min: 5, description: "Minyak SunCo 2 liter.", imageUrl: "https://picsum.photos/seed/MDR-SC02/300/300", createdAt: new Date().toISOString() },
-    { id: 'prod-madura-3', tenantId: tenant2.id, name: "Bensin Eceran 1 Liter", sku: "MDR-BS01", category: "Perlengkapan Warung", price: 12000, costPrice: 10000, stock: 45, unit: "botol", min: 10, description: "Bensin eceran botol kaca.", imageUrl: "https://picsum.photos/seed/MDR-BS01/300/300", createdAt: new Date().toISOString() },
-    { id: 'prod-madura-4', tenantId: tenant2.id, name: "Es Teh Manis Jumbo", sku: "MDR-ES01", category: "Minuman & Kopi", price: 4000, costPrice: 2000, stock: 99, unit: "cup", min: 10, description: "Es teh manis segar cup jumbo.", imageUrl: "https://picsum.photos/seed/MDR-ES01/300/300", createdAt: new Date().toISOString() },
+    { id: 'prod-madura-1', tenantId: tenant2.id, name: "Beras Pandan Wangi Premium 5kg", sku: "MDR-PW05", category: "Beras & Gandum", price: 78000, costPrice: 70000, stock: 20, unit: "karung", min: 5, imageUrl: "https://picsum.photos/seed/MDR-PW05/300/300", createdAt: new Date().toISOString() },
+    { id: 'prod-madura-2', tenantId: tenant2.id, name: "Minyak Goreng SunCo 2L", sku: "MDR-SC02", category: "Minyak & Margarin", price: 38000, costPrice: 34000, stock: 30, unit: "pouch", min: 5, imageUrl: "https://picsum.photos/seed/MDR-SC02/300/300", createdAt: new Date().toISOString() },
+    { id: 'prod-madura-3', tenantId: tenant2.id, name: "Bensin Eceran 1 Liter", sku: "MDR-BS01", category: "Perlengkapan Warung", price: 12000, costPrice: 10000, stock: 45, unit: "botol", min: 10, imageUrl: "https://picsum.photos/seed/MDR-BS01/300/300", createdAt: new Date().toISOString() },
+    { id: 'prod-madura-4', tenantId: tenant2.id, name: "Es Teh Manis Jumbo", sku: "MDR-ES01", category: "Minuman & Kopi", price: 4000, costPrice: 2000, stock: 99, unit: "cup", min: 10, imageUrl: "https://picsum.photos/seed/MDR-ES01/300/300", createdAt: new Date().toISOString() },
   ];
 
   await productsCol.insertMany([...productsToInsert, ...tenant2Products]);
@@ -795,5 +795,51 @@ export async function ensureSeedOrdersForAdmin() {
     }
   } catch (err) {
     console.warn('ensureSeedOrdersForAdmin non-fatal:', err);
+  }
+}
+
+export const DEFAULT_CASHIER_UNITS = [
+  { name: 'Pieces / Buah', symbol: 'pcs', category: 'ECERAN', description: 'Satuan eceran barang satuan tunggal sembako kelontong' },
+  { name: 'Bungkus', symbol: 'bks', category: 'ECERAN', description: 'Kemasan bungkus mie instan, garam, bumbu sachet, rokok' },
+  { name: 'Sachet', symbol: 'sachet', category: 'ECERAN', description: 'Kemasan sachet kecil kopi instan, sampo, susu kental, bumbu' },
+  { name: 'Renceng', symbol: 'rcg', category: 'KEMASAN', description: 'Ikatan renceng (biasanya berisi 10 atau 12 sachet renteng)' },
+  { name: 'Dus / Karton', symbol: 'dus', category: 'KEMASAN', description: 'Kemasan kardus karton grosir pabrik (isi 24, 40, atau 48)' },
+  { name: 'Slop', symbol: 'slp', category: 'KEMASAN', description: 'Kemasan slop rokok atau baterai (biasanya isi 10 bungkus)' },
+  { name: 'Karung', symbol: 'karung', category: 'KEMASAN', description: 'Kemasan karung beras, tepung terigu, atau pakan ternak (5kg-50kg)' },
+  { name: 'Botol', symbol: 'btl', category: 'VOLUME', description: 'Kemasan botol kecap, sirup, saus, minuman kemasan' },
+  { name: 'Kaleng', symbol: 'klg', category: 'VOLUME', description: 'Kemasan kaleng susu kental manis, biskuit kaleng, sarden' },
+  { name: 'Liter', symbol: 'ltr', category: 'VOLUME', description: 'Satuan takaran volume cairan minyak goreng curah atau bensin' },
+  { name: 'Kilogram', symbol: 'kg', category: 'TIMBANGAN', description: 'Satuan timbangan baku berat (beras, gula pasir, telur, tepung curah)' },
+  { name: 'Gram', symbol: 'gr', category: 'TIMBANGAN', description: 'Satuan timbangan kecil (bumbu dapur, rempah, cabai rawit)' },
+  { name: 'Ons', symbol: 'ons', category: 'TIMBANGAN', description: 'Satuan timbangan pasar tradisional kelontong (1 ons = 100 gram)' },
+  { name: 'Butir', symbol: 'btr', category: 'ECERAN', description: 'Satuan butir eceran seperti telur ayam butiran dan kelapa utuh' },
+  { name: 'Ikat', symbol: 'ikt', category: 'IKATAN', description: 'Satuan ikatan sayur mayur dan dedaunan dapur bumbu' },
+  { name: 'Pack / Pak', symbol: 'pck', category: 'KEMASAN', description: 'Kemasan pack plastik, mika, atau kotak per pack' },
+  { name: 'Pouch', symbol: 'pouch', category: 'KEMASAN', description: 'Kemasan kantong berdiri (minyak goreng pouch, deterjen refill)' },
+  { name: 'Cup / Gelas', symbol: 'cup', category: 'VOLUME', description: 'Kemasan cup gelas air mineral atau minuman siap minum' },
+];
+
+export async function seedInitialUnits(tenantId: string) {
+  try {
+    const existing = await unitsCol.countDocuments({ tenantId });
+    if (existing > 0) return;
+
+    const now = new Date().toISOString();
+    const docs = DEFAULT_CASHIER_UNITS.map((u, idx) => ({
+      id: `unit-${tenantId}-${u.symbol}-${idx + 1}`,
+      tenantId,
+      name: u.name,
+      symbol: u.symbol.toLowerCase(),
+      category: u.category,
+      description: u.description,
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    await unitsCol.insertMany(docs);
+    console.log(`✅ Seeded ${docs.length} standard cashier units for tenant: ${tenantId}`);
+  } catch (err) {
+    console.warn(`seedInitialUnits non-fatal for ${tenantId}:`, err);
   }
 }

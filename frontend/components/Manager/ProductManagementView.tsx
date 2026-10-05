@@ -15,6 +15,7 @@ import {
   Layers,
   Sparkles,
   ExternalLink,
+  Scale,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Product } from '../../types';
@@ -30,12 +31,14 @@ interface ProductManagementViewProps {
   products: Product[];
   onRefreshProducts: () => void;
   onNavigateToCategories: () => void;
+  onNavigateToUnits?: () => void;
 }
 
 export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
   products,
   onRefreshProducts,
   onNavigateToCategories,
+  onNavigateToUnits,
 }) => {
   const { t } = useTranslation();
   const { user, token } = useAuthStore();
@@ -268,9 +271,20 @@ export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onNavigateToUnits && (
+            <button
+              onClick={onNavigateToUnits}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shadow-2xs cursor-pointer"
+              title="Buka Daftar Istilah Satuan Kasir"
+            >
+              <Scale className="w-4 h-4 text-theme-primary" />
+              <span>Satuan Kasir</span>
+            </button>
+          )}
+
           <button
             onClick={onNavigateToCategories}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-xs"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shadow-xs"
           >
             <Layers className="w-4 h-4 text-emerald-600" />
             <span>Manajemen Kategori</span>
@@ -465,7 +479,7 @@ export const ProductManagementView: React.FC<ProductManagementViewProps> = ({
                           <div className="truncate max-w-[200px] sm:max-w-xs">
                             <div className="font-bold text-slate-900 truncate">{p.name}</div>
                             <div className="text-[10px] text-slate-400 truncate">
-                              {p.description || `Satuan: ${p.unit}`}
+                              Satuan: {p.unit}
                             </div>
                           </div>
                         </div>

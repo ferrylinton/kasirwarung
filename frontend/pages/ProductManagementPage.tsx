@@ -6,6 +6,7 @@ export interface ProductManagementPageProps {
   products: Product[];
   onRefreshProducts: () => void;
   onNavigateToCategories: () => void;
+  onNavigateToUnits?: () => void;
 }
 
 export const ProductManagementPage: React.FC<ProductManagementPageProps> = (props) => {

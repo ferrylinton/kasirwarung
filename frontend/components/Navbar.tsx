@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
   Boxes,
   FolderTree,
+  Scale,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
@@ -35,6 +36,7 @@ const TAB_CONFIG: Record<NavTab, { label: string; icon: React.ComponentType<{ cl
   categories: { label: 'Kategori', icon: Layers },
   'product-management': { label: 'Kelola Produk', icon: Boxes },
   'category-management': { label: 'Kelola Kategori', icon: FolderTree },
+  'unit-management': { label: 'Istilah Satuan Kasir', icon: Scale },
   pos: { label: 'Keranjang', icon: ShoppingCart },
   history: { label: 'Riwayat Transaksi', icon: Receipt },
   dashboard: { label: 'Laporan Toko', icon: BarChart3 },

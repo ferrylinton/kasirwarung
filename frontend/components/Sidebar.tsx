@@ -19,6 +19,7 @@ import {
   ClipboardList,
   KeyRound,
   SlidersHorizontal,
+  Scale,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
@@ -30,6 +31,7 @@ export type NavTab =
   | 'categories'
   | 'product-management'
   | 'category-management'
+  | 'unit-management'
   | 'pos'
   | 'history'
   | 'dashboard'
@@ -173,6 +175,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'category-management' as NavTab,
           label: t('nav.categoryManagement', 'Manajemen Kategori'),
           icon: FolderTree,
+          roles: ['MANAGER'],
+        },
+        {
+          id: 'unit-management' as NavTab,
+          label: t('nav.unitManagement', 'Istilah Satuan Kasir'),
+          icon: Scale,
           roles: ['MANAGER'],
         },
         {
