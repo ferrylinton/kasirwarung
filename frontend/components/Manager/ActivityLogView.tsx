@@ -36,7 +36,7 @@ type DatePickerValue = ValuePiece | [ValuePiece, ValuePiece];
 
 export const ActivityLogView: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { token, user } = useAuthStore();
+  const { token } = useAuthStore();
 
   const isEn = i18n.language === 'en';
   const dateFnsLocale = isEn ? enLocale : idLocale;
@@ -126,12 +126,6 @@ export const ActivityLogView: React.FC = () => {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
-
-  // Reset page when filter changes
-  const handleModuleChange = (mod: 'ALL' | ActivityModule) => {
-    setSelectedModule(mod);
-    setPage(1);
-  };
 
   const handleStartDateChange = (val: DatePickerValue) => {
     setStartDate(val);
@@ -234,89 +228,9 @@ export const ActivityLogView: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 shadow-xs">
-            <ClipboardList className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                {t('activityLog.title', 'Log Aktivitas Toko')}
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
-                <ShieldCheck className="w-3 h-3 text-emerald-700" />
-                Role: {user?.role || 'MANAGER'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Refresh Button */}
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <button
-            onClick={() => fetchLogs()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer disabled:opacity-50"
-            title="Muat Ulang Data"
-          >
-            <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-            <span className="hidden sm:inline">{t('common.refresh', 'Perbarui')}</span>
-          </button>
-        </div>
-      </div>
-
       {/* Filter and Search Bar Card */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        {/* Top: Module Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none border-b border-slate-100 pb-3">
-          <button
-            onClick={() => handleModuleChange('ALL')}
-            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-              selectedModule === 'ALL'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {t('activityLog.moduleAll', 'Semua Modul')}
-          </button>
-          <button
-            onClick={() => handleModuleChange('PRODUCT')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-              selectedModule === 'PRODUCT'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <Boxes className="w-4 h-4" />
-            {t('activityLog.moduleProduct', 'Manajemen Produk')}
-          </button>
-          <button
-            onClick={() => handleModuleChange('CATEGORY')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-              selectedModule === 'CATEGORY'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <FolderTree className="w-4 h-4" />
-            {t('activityLog.moduleCategory', 'Manajemen Kategori')}
-          </button>
-          <button
-            onClick={() => handleModuleChange('CASHIER')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-              selectedModule === 'CASHIER'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <Users2 className="w-4 h-4" />
-            {t('activityLog.moduleCashier', 'Kelola Staf Kasir')}
-          </button>
-        </div>
-
-        {/* Bottom Filter Controls: Search & Date Pickers (Tanggal Awal & Tanggal Akhir) */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        {/* Filter Controls: Search & Date Pickers (Tanggal Awal & Tanggal Akhir) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Keyword Search Input */}
           <div className="sm:col-span-2 lg:col-span-4 relative">
