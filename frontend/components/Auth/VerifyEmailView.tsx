@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MailCheck, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react';
+import { MailCheck, KeyRound, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
@@ -32,7 +32,7 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
       addToast({
         type: 'warning',
         title: t('common.warning', 'Peringatan'),
-        message: 'Masukkan token verifikasi dari email Anda.',
+        message: t('auth.enterVerificationToken', 'Masukkan token verifikasi dari email Anda.'),
       });
       return;
     }
@@ -50,21 +50,21 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || t('common.error', 'Verifikasi gagal'));
+        throw new Error(data.message || t('auth.verificationFailedDefault', 'Verifikasi gagal'));
       }
 
       setAuth(data.token, data.user, undefined, data.refreshToken);
       addToast({
         type: 'success',
-        title: t('auth.loginSuccessTitle', 'Verifikasi Berhasil!'),
-        message: data.message || 'Akun Anda telah aktif dan dapat digunakan.',
+        title: t('auth.verificationSuccessTitle', 'Verifikasi Berhasil!'),
+        message: data.message || t('auth.verificationSuccessMsg', 'Akun Anda telah aktif dan dapat digunakan.'),
       });
 
       onVerifiedSuccess();
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: t('common.error', 'Verifikasi Gagal'),
+        title: t('auth.verificationFailed', 'Verifikasi Gagal'),
         message: err.message,
       });
     } finally {
@@ -74,8 +74,6 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] flex items-center justify-center p-4 relative transition-colors">
-   
-
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full p-6 sm:p-8 overflow-hidden relative text-center">
         {/* Language switcher and theme toggle centered at the top of login box */}
         <div className="flex items-center justify-center mb-6">
@@ -91,12 +89,12 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
         </div>
 
         <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-          {t('auth.verifyTitle', 'Verifikasi Akun Warung')}
+          {t('auth.verifyTitleWarung', 'Verifikasi Akun Warung')}
         </h1>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
           {initialEmail
-            ? `Email verifikasi telah dikirimkan ke ${initialEmail}. Silakan periksa inbox email Anda atau gunakan token di bawah.`
-            : t('auth.verifySubtitle', 'Masukkan kode / token verifikasi yang dikirimkan ke alamat email Anda untuk mengaktifkan akun.')}
+            ? t('auth.verificationSentToEmail', 'Email verifikasi telah dikirimkan ke {{email}}. Silakan periksa inbox email Anda atau gunakan token di bawah.', { email: initialEmail })
+            : t('auth.verifySubtitleWarung', 'Masukkan kode / token verifikasi yang dikirimkan ke alamat email Anda untuk mengaktifkan akun.')}
         </p>
 
         <form onSubmit={handleVerify} className="mt-6 space-y-4 text-left">
@@ -110,7 +108,8 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
                 type="text"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="verify-174..."
+                placeholder={t('auth.verifyTokenPlaceholder', 'Contoh: verify-174...')}
+                aria-label={t('auth.verifyTokenLabel', 'Token Verifikasi Akun')}
                 className="w-full pl-9 pr-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-theme-primary focus:outline-hidden transition-all"
               />
             </div>
@@ -121,17 +120,18 @@ export const VerifyEmailView: React.FC<VerifyEmailViewProps> = ({
             disabled={loading}
             className="w-full py-3 btn-theme-primary disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <span>{loading ? t('auth.verifying', 'Mengaktifkan...') : t('auth.verifyBtn', 'Aktivasi & Mulai Berjualan')}</span>
+            <span>{loading ? t('auth.verifyActivating', 'Mengaktifkan...') : t('auth.verifyActivateBtn', 'Aktivasi & Mulai Berjualan')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
           <button
+            type="button"
             onClick={onBackToLogin}
             className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold cursor-pointer"
           >
-            {t('auth.backToLogin', 'Kembali ke Halaman Masuk')}
+            {t('auth.backToLoginBtn', 'Kembali ke Halaman Masuk')}
           </button>
         </div>
       </div>

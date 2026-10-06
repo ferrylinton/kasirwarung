@@ -326,6 +326,7 @@ export const AdminDashboardView: React.FC = () => {
               <DatePicker
                 onChange={handleDateChange}
                 value={selectedDate}
+                showLeadingZeros={true}
                 format="dd/MM/yyyy"
                 clearIcon={null}
                 calendarIcon={<CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />}

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import DatePicker from 'react-date-picker';
 import 'react-date-picker/dist/DatePicker.css';
 import 'react-calendar/dist/Calendar.css';
+import { id as idLocale, enUS as enLocale } from 'date-fns/locale';
+import { format as formatFns } from 'date-fns';
 import {
   ClipboardList,
   Search,
@@ -33,8 +35,12 @@ type ValuePiece = Date | null;
 type DatePickerValue = ValuePiece | [ValuePiece, ValuePiece];
 
 export const ActivityLogView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { token, user } = useAuthStore();
+
+  const isEn = i18n.language === 'en';
+  const dateFnsLocale = isEn ? enLocale : idLocale;
+  const datePickerLocale = dateFnsLocale.code || (isEn ? 'en-US' : 'id-ID');
 
   // State
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -48,8 +54,8 @@ export const ActivityLogView: React.FC = () => {
   // Filters
   const [selectedModule, setSelectedModule] = useState<'ALL' | ActivityModule>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState<DatePickerValue>(null);
-  const [activeDatePreset, setActiveDatePreset] = useState<'all' | 'today' | 'yesterday' | '7days' | 'custom'>('all');
+  const [startDate, setStartDate] = useState<DatePickerValue>(null);
+  const [endDate, setEndDate] = useState<DatePickerValue>(null);
 
   // Detail Modal
   const [activeLogDetail, setActiveLogDetail] = useState<ActivityLog | null>(null);
@@ -74,23 +80,25 @@ export const ActivityLogView: React.FC = () => {
         params.append('q', searchQuery.trim());
       }
 
-      // Handle date filtering
-      if (selectedDate instanceof Date) {
-        const year = selectedDate.getFullYear();
-        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(selectedDate.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-        params.append('startDate', dateStr);
-        params.append('endDate', dateStr);
-      } else if (Array.isArray(selectedDate)) {
-        if (selectedDate[0] instanceof Date) {
-          const s = selectedDate[0];
-          params.append('startDate', `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`);
-        }
-        if (selectedDate[1] instanceof Date) {
-          const e = selectedDate[1];
-          params.append('endDate', `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, '0')}-${String(e.getDate()).padStart(2, '0')}`);
-        }
+      // Handle date filtering (Tanggal Awal & Tanggal Akhir)
+      if (startDate instanceof Date) {
+        const year = startDate.getFullYear();
+        const month = String(startDate.getMonth() + 1).padStart(2, '0');
+        const day = String(startDate.getDate()).padStart(2, '0');
+        params.append('startDate', `${year}-${month}-${day}`);
+      } else if (Array.isArray(startDate) && startDate[0] instanceof Date) {
+        const s = startDate[0];
+        params.append('startDate', `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`);
+      }
+
+      if (endDate instanceof Date) {
+        const year = endDate.getFullYear();
+        const month = String(endDate.getMonth() + 1).padStart(2, '0');
+        const day = String(endDate.getDate()).padStart(2, '0');
+        params.append('endDate', `${year}-${month}-${day}`);
+      } else if (Array.isArray(endDate) && endDate[0] instanceof Date) {
+        const e = endDate[0];
+        params.append('endDate', `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, '0')}-${String(e.getDate()).padStart(2, '0')}`);
       }
 
       const res = await fetch(`/api/activity-logs?${params.toString()}`, {
@@ -113,7 +121,7 @@ export const ActivityLogView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, page, limit, selectedModule, searchQuery, selectedDate]);
+  }, [token, page, limit, selectedModule, searchQuery, startDate, endDate]);
 
   useEffect(() => {
     fetchLogs();
@@ -125,36 +133,21 @@ export const ActivityLogView: React.FC = () => {
     setPage(1);
   };
 
-  const handleDateChange = (val: DatePickerValue) => {
-    setSelectedDate(val);
-    setActiveDatePreset(val ? 'custom' : 'all');
+  const handleStartDateChange = (val: DatePickerValue) => {
+    setStartDate(val);
     setPage(1);
   };
 
-  const handleApplyPreset = (preset: 'all' | 'today' | 'yesterday' | '7days') => {
-    setActiveDatePreset(preset);
+  const handleEndDateChange = (val: DatePickerValue) => {
+    setEndDate(val);
     setPage(1);
-
-    if (preset === 'all') {
-      setSelectedDate(null);
-    } else if (preset === 'today') {
-      setSelectedDate(new Date());
-    } else if (preset === 'yesterday') {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      setSelectedDate(yesterday);
-    } else if (preset === '7days') {
-      // Set to today, backend can do range or user can inspect recent
-      setSelectedDate(null);
-      // For quick 7-days filter we can leave date null and search recent or custom
-    }
   };
 
   const handleResetFilters = () => {
     setSelectedModule('ALL');
     setSearchQuery('');
-    setSelectedDate(null);
-    setActiveDatePreset('all');
+    setStartDate(null);
+    setEndDate(null);
     setPage(1);
   };
 
@@ -165,18 +158,11 @@ export const ActivityLogView: React.FC = () => {
     setTimeout(() => setCopiedJson(false), 2000);
   };
 
-  // Helper formatting
+  // Helper formatting with date-fns
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
-      return new Intl.DateTimeFormat('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }).format(date);
+      return formatFns(date, 'd MMM yyyy, HH:mm:ss', { locale: dateFnsLocale });
     } catch {
       return isoString;
     }
@@ -330,95 +316,128 @@ export const ActivityLogView: React.FC = () => {
           </button>
         </div>
 
-        {/* Bottom Filter Controls: Search & React Date Picker */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center">
+        {/* Bottom Filter Controls: Search & Date Pickers (Tanggal Awal & Tanggal Akhir) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Keyword Search Input */}
-          <div className="md:col-span-6 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder={t('activityLog.searchPlaceholder', 'Cari deskripsi aktivitas, nama staf, aksi...')}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          <div className="sm:col-span-2 lg:col-span-4 relative">
+            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              {t('activityLog.searchLabel', 'Pencarian Kata Kunci')}
+            </span>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                placeholder={t('activityLog.searchPlaceholder', 'Cari deskripsi aktivitas, nama staf, aksi...')}
+                className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Date Picker using react-date-picker */}
-          <div className="md:col-span-4 flex items-center gap-2">
-            <div className="w-full">
+          {/* Tanggal Awal Date Picker */}
+          <div className="sm:col-span-1 lg:col-span-3">
+            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              {t('activityLog.startDate', 'Tanggal Awal')}
+            </span>
+            <div
+              className="w-full"
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (target?.classList?.contains('react-date-picker__inputGroup__leadingZero')) {
+                  const nextInput = target.nextElementSibling as HTMLInputElement;
+                  if (nextInput && typeof nextInput.focus === 'function') {
+                    nextInput.focus();
+                  }
+                }
+              }}
+            >
               <DatePicker
-                onChange={handleDateChange}
-                value={selectedDate}
-                format="dd/MM/yyyy"
-                clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700" />}
+                onChange={handleStartDateChange}
+                value={startDate}
+                maxDate={endDate instanceof Date ? endDate : undefined}
+                locale={datePickerLocale}
+                showLeadingZeros={true}
+                format={isEn ? 'MM/dd/yyyy' : 'dd/MM/yyyy'}
+                clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />}
                 calendarIcon={<CalendarIcon className="w-4 h-4 text-slate-500" />}
                 dayPlaceholder="dd"
                 monthPlaceholder="mm"
                 yearPlaceholder="yyyy"
+                dayAriaLabel={t('activityLog.dayAriaLabel', isEn ? 'Day' : 'Hari')}
+                monthAriaLabel={t('activityLog.monthAriaLabel', isEn ? 'Month' : 'Bulan')}
+                nativeInputAriaLabel={t('activityLog.startDate', 'Tanggal Awal')}
+                yearAriaLabel={t('activityLog.yearAriaLabel', isEn ? 'Year' : 'Tahun')}
+                clearAriaLabel={t('activityLog.clearStartDateAriaLabel', isEn ? 'Clear start date' : 'Hapus tanggal awal')}
+                calendarAriaLabel={t('activityLog.calendarAriaLabel', isEn ? 'Toggle calendar' : 'Buka kalender')}
+                className="w-full text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Tanggal Akhir Date Picker */}
+          <div className="sm:col-span-1 lg:col-span-3">
+            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+              {t('activityLog.endDate', 'Tanggal Akhir')}
+            </span>
+            <div
+              className="w-full"
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (target?.classList?.contains('react-date-picker__inputGroup__leadingZero')) {
+                  const nextInput = target.nextElementSibling as HTMLInputElement;
+                  if (nextInput && typeof nextInput.focus === 'function') {
+                    nextInput.focus();
+                  }
+                }
+              }}
+            >
+              <DatePicker
+                onChange={handleEndDateChange}
+                value={endDate}
+                minDate={startDate instanceof Date ? startDate : undefined}
+                locale={datePickerLocale}
+                showLeadingZeros={true}
+                format={isEn ? 'MM/dd/yyyy' : 'dd/MM/yyyy'}
+                clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />}
+                calendarIcon={<CalendarIcon className="w-4 h-4 text-slate-500" />}
+                dayPlaceholder="dd"
+                monthPlaceholder="mm"
+                yearPlaceholder="yyyy"
+                dayAriaLabel={t('activityLog.dayAriaLabel', isEn ? 'Day' : 'Hari')}
+                monthAriaLabel={t('activityLog.monthAriaLabel', isEn ? 'Month' : 'Bulan')}
+                nativeInputAriaLabel={t('activityLog.endDate', 'Tanggal Akhir')}
+                yearAriaLabel={t('activityLog.yearAriaLabel', isEn ? 'Year' : 'Tahun')}
+                clearAriaLabel={t('activityLog.clearEndDateAriaLabel', isEn ? 'Clear end date' : 'Hapus tanggal akhir')}
+                calendarAriaLabel={t('activityLog.calendarAriaLabel', isEn ? 'Toggle calendar' : 'Buka kalender')}
                 className="w-full text-sm"
               />
             </div>
           </div>
 
           {/* Quick Clear / Reset Filters */}
-          <div className="md:col-span-2 flex items-center justify-end">
-            {(selectedModule !== 'ALL' || searchQuery || selectedDate) && (
+          <div className="sm:col-span-2 lg:col-span-2 flex items-center justify-end">
+            {(selectedModule !== 'ALL' || searchQuery || startDate || endDate) && (
               <button
                 onClick={handleResetFilters}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {t('activityLog.clearFilter', 'Reset Filter')}
               </button>
             )}
           </div>
-        </div>
-
-        {/* Quick Date Presets Row */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          <span className="text-slate-400 font-medium">{t('activityLog.filterDate', 'Filter Tanggal')}:</span>
-          <button
-            onClick={() => handleApplyPreset('all')}
-            className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-              activeDatePreset === 'all'
-                ? 'bg-slate-800 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {t('activityLog.allDates', 'Semua')}
-          </button>
-          <button
-            onClick={() => handleApplyPreset('today')}
-            className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-              activeDatePreset === 'today'
-                ? 'bg-slate-800 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {t('activityLog.today', 'Hari Ini')}
-          </button>
-          <button
-            onClick={() => handleApplyPreset('yesterday')}
-            className={`px-2.5 py-1 rounded-lg transition font-medium cursor-pointer ${
-              activeDatePreset === 'yesterday'
-                ? 'bg-slate-800 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {t('activityLog.yesterday', 'Kemarin')}
-          </button>
         </div>
       </div>
 
@@ -446,14 +465,14 @@ export const ActivityLogView: React.FC = () => {
               <ClipboardList className="w-7 h-7" />
             </div>
             <h3 className="text-base font-bold text-slate-700">
-              {searchQuery || selectedModule !== 'ALL' || selectedDate
+              {searchQuery || selectedModule !== 'ALL' || startDate || endDate
                 ? t('activityLog.noLogsMatch', 'Tidak ada aktivitas yang sesuai dengan filter pencarian.')
                 : t('activityLog.noLogs', 'Belum ada aktivitas yang tercatat.')}
             </h3>
             <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
               {t('activityLog.noLogsDesc', 'Setiap penambahan, pengubahan, atau penghapusan data produk, kategori, dan staf kasir akan terekam di sini.')}
             </p>
-            {(searchQuery || selectedModule !== 'ALL' || selectedDate) && (
+            {(searchQuery || selectedModule !== 'ALL' || startDate || endDate) && (
               <button
                 onClick={handleResetFilters}
                 className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition cursor-pointer"

@@ -382,6 +382,29 @@ body {
   box-sizing: content-box;
 }
 
+.react-date-picker__inputGroup__divider,
+.react-date-picker__inputGroup__leadingZero {
+  display: inline-block;
+  font: inherit;
+  color: var(--text-main);
+  user-select: none;
+  line-height: inherit;
+}
+
+.dark .react-date-picker__inputGroup__divider,
+.dark .react-date-picker__inputGroup__leadingZero {
+  color: var(--text-main);
+}
+
+.react-date-picker__inputGroup__leadingZero {
+  cursor: text;
+}
+
+.react-date-picker__inputGroup__input--hasLeadingZero {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
 .react-date-picker__inputGroup__input {
   min-width: 0.54em;
   height: 100%;
@@ -566,6 +589,23 @@ body {
 
 .dark .custom-react-date-picker .react-daterange-picker__range-divider {
   color: #94a3b8;
+}
+
+.custom-react-date-picker .react-date-picker__inputGroup__leadingZero,
+.custom-react-date-picker .react-daterange-picker__inputGroup__leadingZero {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  user-select: none;
+  cursor: text;
+  line-height: inherit;
+}
+
+.custom-react-date-picker .react-date-picker__inputGroup__input--hasLeadingZero,
+.custom-react-date-picker .react-daterange-picker__inputGroup__input--hasLeadingZero {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
 }
 
 .custom-react-date-picker .react-date-picker__inputGroup__input,

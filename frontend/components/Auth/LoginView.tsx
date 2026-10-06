@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { z } from 'zod';
-import { ShoppingBag, Lock, Mail, Store, Shield, ArrowRight, UserCheck } from 'lucide-react';
+import { ShoppingBag, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
 import { LanguageSelector } from '../LanguageSelector';
 import { ThemeToggle } from '../Theme/ThemeToggle';
-
-const LoginSchema = z.object({
-  email: z.string().email('Format email tidak valid'),
-  password: z.string().min(1, 'Kata sandi wajib diisi'),
-});
 
 interface LoginViewProps {
   onSwitchToRegister: () => void;
@@ -35,7 +30,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const parsed = LoginSchema.safeParse(formData);
+    const loginSchema = z.object({
+      email: z.string().email(t('auth.invalidEmail', 'Format email tidak valid')),
+      password: z.string().min(1, t('auth.passwordRequired', 'Kata sandi wajib diisi')),
+    });
+
+    const parsed = loginSchema.safeParse(formData);
     if (!parsed.success) {
       const fieldErrors: { [key: string]: string } = {};
       parsed.error.issues.forEach((iss) => {
@@ -60,7 +60,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || t('common.error', 'Gagal masuk akun'));
+        throw new Error(data.message || t('auth.loginFailedDefault', 'Gagal masuk akun'));
       }
 
       setAuth(data.token, data.user, undefined, data.refreshToken);
@@ -72,7 +72,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: t('common.error', 'Gagal Masuk'),
+        title: t('auth.loginFailed', 'Gagal Masuk'),
         message: err.message,
       });
     } finally {
@@ -80,13 +80,15 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }
   };
 
-  const fillQuickDemo = (email: string, pass: string, label: string) => {
+  const fillQuickDemo = (email: string, pass: string, roleLabel: string) => {
     setFormData({ email, password: pass });
     setErrors({});
     addToast({
       type: 'info',
-      title: 'Demo Akun Dipilih',
-      message: `Kredensial untuk role ${label} telah dimuat. Klik tombol Masuk.`,
+      title: t('auth.demoAccountSelectedTitle', 'Demo Akun Dipilih'),
+      message: t('auth.demoAccountSelectedMsg', 'Kredensial untuk role {{role}} telah dimuat. Klik tombol Masuk.', {
+        role: roleLabel,
+      }),
     });
   };
 
@@ -114,31 +116,31 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </div>
 
         {/* Demo Accounts Quick-Select Buttons */}
-        <div className="mb-6 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-          <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider text-center">
+        <div className="mb-6 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/70 rounded-2xl space-y-2">
+          <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-center">
             ⚡ {t('auth.demoAccountsTitle', 'Akun Demo Siap Pakai (1-Click Fill)')}
           </div>
           <div className="grid grid-cols-3 gap-1.5 text-xs">
             <button
               type="button"
-              onClick={() => fillQuickDemo('kasir@berkahjaya.com', 'Kasir123!', 'CASHIER (Bu Siti)')}
-              className="py-1.5 px-2 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-500 rounded-xl text-slate-700 hover:text-emerald-800 font-bold transition-all text-center"
+              onClick={() => fillQuickDemo('kasir@berkahjaya.com', 'Kasir123!', t('auth.demoCashierRole', 'CASHIER (Bu Siti)'))}
+              className="py-1.5 px-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-xl text-slate-700 dark:text-slate-200 hover:text-emerald-800 dark:hover:text-emerald-300 font-bold transition-all text-center cursor-pointer"
             >
-              Kasir (Bu Siti)
+              {t('auth.demoCashierBtn', 'Kasir (Bu Siti)')}
             </button>
             <button
               type="button"
-              onClick={() => fillQuickDemo('manager@berkahjaya.com', 'Manager123!', 'MANAGER (Bu Siti Rahma)')}
-              className="py-1.5 px-2 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-500 rounded-xl text-slate-700 hover:text-emerald-800 font-bold transition-all text-center"
+              onClick={() => fillQuickDemo('manager@berkahjaya.com', 'Manager123!', t('auth.demoManagerRole', 'MANAGER (Bu Siti Rahma)'))}
+              className="py-1.5 px-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-xl text-slate-700 dark:text-slate-200 hover:text-emerald-800 dark:hover:text-emerald-300 font-bold transition-all text-center cursor-pointer"
             >
-              Manager Warung
+              {t('auth.demoManagerBtn', 'Manager Warung')}
             </button>
             <button
               type="button"
-              onClick={() => fillQuickDemo('admin@kasirwarung.com', 'Admin123!', 'ADMIN (Super Admin)')}
-              className="py-1.5 px-2 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-500 rounded-xl text-slate-700 hover:text-purple-800 font-bold transition-all text-center"
+              onClick={() => fillQuickDemo('admin@kasirwarung.com', 'Admin123!', t('auth.demoAdminRole', 'ADMIN (Super Admin)'))}
+              className="py-1.5 px-2 bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/40 border border-slate-200 dark:border-slate-700 hover:border-purple-500 rounded-xl text-slate-700 dark:text-slate-200 hover:text-purple-800 dark:hover:text-purple-300 font-bold transition-all text-center cursor-pointer"
             >
-              Admin Global
+              {t('auth.demoAdminBtn', 'Admin Global')}
             </button>
           </div>
         </div>
@@ -146,7 +148,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {t('auth.emailLabel', 'Alamat Email')}
             </label>
             <div className="relative">
@@ -154,10 +156,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                }}
                 placeholder={t('auth.emailPlaceholder', 'nama@warunganda.com')}
-                className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
-                  errors.email ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
+                aria-label={t('auth.emailLabel', 'Alamat Email')}
+                className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 dark:bg-slate-800/80 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition-all ${
+                  errors.email
+                    ? 'border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-950'
+                    : 'border-slate-200 dark:border-slate-700 focus:border-emerald-500'
                 }`}
               />
             </div>
@@ -165,7 +173,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {t('auth.passwordLabel', 'Kata Sandi')}
             </label>
             <div className="relative">
@@ -173,10 +181,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <input
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                }}
                 placeholder={t('auth.passwordPlaceholder', '••••••••')}
-                className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 focus:bg-white focus:outline-hidden transition-all ${
-                  errors.password ? 'border-rose-400 focus:ring-2 focus:ring-rose-100' : 'border-slate-200 focus:border-emerald-500'
+                aria-label={t('auth.passwordLabel', 'Kata Sandi')}
+                className={`w-full pl-9 pr-3.5 py-2.5 text-xs rounded-xl border bg-slate-50 dark:bg-slate-800/80 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden transition-all ${
+                  errors.password
+                    ? 'border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-950'
+                    : 'border-slate-200 dark:border-slate-700 focus:border-emerald-500'
                 }`}
               />
             </div>
@@ -198,6 +212,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <p className="text-xs text-slate-600 dark:text-slate-400">
             {t('auth.noAccount', 'Belum punya akun warung?')}{' '}
             <button
+              type="button"
               onClick={onSwitchToRegister}
               className="text-theme-primary font-bold hover:underline cursor-pointer"
             >
@@ -206,12 +221,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
           </p>
 
           <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            {t('auth.verifySubtitle', 'Punya kode verifikasi email?')}{' '}
+            {t('auth.haveVerifyCode', 'Punya kode verifikasi email?')}{' '}
             <button
+              type="button"
               onClick={() => onSwitchToVerify()}
               className="text-theme-primary font-semibold hover:underline cursor-pointer"
             >
-              {t('auth.verifyBtn', 'Aktivasi Akun di Sini')}
+              {t('auth.activateHere', 'Aktivasi Akun di Sini')}
             </button>
           </p>
         </div>
