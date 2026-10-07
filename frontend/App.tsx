@@ -26,6 +26,7 @@ import {
   TenantDeactivationReviewPage,
   TenantInfoPage,
   UserManagementPage,
+  ActiveSessionsPage,
   ConfigurationPage,
   UserProfilePage,
   LoginPage,
@@ -58,6 +59,16 @@ export default function App() {
       setCurrentTab((prev) => (prev === 'catalog' ? 'admin-dashboard' : prev));
     }
   }, [user?.role, user?.id]);
+
+  // Route guard: Redirect non-admin if currently on admin-only tabs
+  useEffect(() => {
+    if (user && user.role !== 'ADMIN') {
+      const adminTabs: NavTab[] = ['admin-dashboard', 'tenants', 'tenant-requests', 'user-management', 'active-sessions'];
+      if (adminTabs.includes(currentTab)) {
+        setCurrentTab('catalog');
+      }
+    }
+  }, [user?.role, currentTab]);
 
   // Reset navbar search query when switching tabs
   useEffect(() => {
@@ -291,7 +302,9 @@ export default function App() {
 
       {currentTab === 'history' && <SalesHistoryPage />}
 
-      {currentTab === 'admin-dashboard' && <AdminDashboardPage />}
+      {currentTab === 'admin-dashboard' && (
+        <AdminDashboardPage onNavigateToRequests={() => setCurrentTab('tenant-requests')} />
+      )}
 
       {currentTab === 'dashboard' && <TenantDashboardPage />}
 
@@ -301,11 +314,23 @@ export default function App() {
 
       {currentTab === 'login-history' && <LoginHistoryPage />}
 
-      {currentTab === 'tenants' && <TenantManagementPage />}
+      {currentTab === 'tenants' && (
+        <TenantManagementPage onNavigateToRequests={() => setCurrentTab('tenant-requests')} />
+      )}
 
-      {currentTab === 'tenant-requests' && <TenantDeactivationReviewPage />}
+      {currentTab === 'tenant-requests' && (
+        <TenantDeactivationReviewPage
+          onNavigateBack={() => setCurrentTab(user?.role === 'ADMIN' ? 'admin-dashboard' : 'catalog')}
+        />
+      )}
 
       {currentTab === 'user-management' && <UserManagementPage />}
+
+      {currentTab === 'active-sessions' && (
+        <ActiveSessionsPage
+          onNavigateBack={() => setCurrentTab(user?.role === 'ADMIN' ? 'admin-dashboard' : 'catalog')}
+        />
+      )}
 
       {currentTab === 'tenant-info' && <TenantInfoPage />}
 

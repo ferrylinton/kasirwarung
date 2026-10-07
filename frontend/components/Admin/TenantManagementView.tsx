@@ -14,11 +14,16 @@ import {
   Check,
   X,
   FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
 import { Tenant, TenantDeactivationRequest } from '../../types';
+
+export interface TenantManagementViewProps {
+  onNavigateToRequests?: () => void;
+}
 
 interface AdminTenant extends Tenant {
   productCount: number;
@@ -27,7 +32,9 @@ interface AdminTenant extends Tenant {
   totalRevenue: number;
 }
 
-export const TenantManagementView: React.FC = () => {
+export const TenantManagementView: React.FC<TenantManagementViewProps> = ({
+  onNavigateToRequests,
+}) => {
   const { token } = useAuthStore();
   const { addToast } = useToastStore();
 
@@ -181,9 +188,21 @@ export const TenantManagementView: React.FC = () => {
                 </p>
               </div>
             </div>
-            <span className="px-2.5 py-1 text-[10px] font-bold uppercase rounded-full bg-amber-200 text-amber-900 shrink-0">
-              Perlu Tindakan Admin
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              {onNavigateToRequests && (
+                <button
+                  type="button"
+                  onClick={onNavigateToRequests}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <span>Halaman Review Lengkap</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="hidden sm:inline-block px-2.5 py-1 text-[10px] font-bold uppercase rounded-full bg-amber-200 text-amber-900 shrink-0">
+                Perlu Tindakan Admin
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3">

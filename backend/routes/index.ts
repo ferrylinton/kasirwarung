@@ -10,6 +10,7 @@ import userRoutes from './user.routes.ts';
 import dashboardRoutes from './dashboard.routes.ts';
 import logRoutes from './log.routes.ts';
 import tenantRoutes from './tenant.routes.ts';
+import sessionRoutes from './session.routes.ts';
 
 const apiRouter = Router();
 
@@ -35,5 +36,9 @@ apiRouter.use('/users', userRoutes);
 apiRouter.use('/', dashboardRoutes);
 apiRouter.use('/', logRoutes);
 apiRouter.use('/', tenantRoutes);
+
+// 7. Active User Sessions & Token Revocation (Admin only)
+apiRouter.use('/admin/sessions', sessionRoutes);
+apiRouter.use('/sessions', sessionRoutes);
 
 export default apiRouter;

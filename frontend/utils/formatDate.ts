@@ -1,21 +1,23 @@
 export type DatePreset = 'today' | 'week' | 'month' | '3months' | 'custom';
 
-export function formatDate(date: string | Date | number, options?: Intl.DateTimeFormatOptions): string {
+export function formatDate(date?: string | Date | number | null, options?: Intl.DateTimeFormatOptions, lang: string = 'id-ID'): string {
   if (!date) return '-';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('id-ID', options || {
+  const locale = lang.startsWith('en') ? 'en-US' : 'id-ID';
+  return d.toLocaleDateString(locale, options || {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 }
 
-export function formatDateTime(date: string | Date | number): string {
+export function formatDateTime(date?: string | Date | number | null, lang: string = 'id-ID'): string {
   if (!date) return '-';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleString('id-ID', {
+  const locale = lang.startsWith('en') ? 'en-US' : 'id-ID';
+  return d.toLocaleString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -24,29 +26,31 @@ export function formatDateTime(date: string | Date | number): string {
   });
 }
 
-export function formatTime(date: string | Date | number): string {
+export function formatTime(date?: string | Date | number | null, lang: string = 'id-ID'): string {
   if (!date) return '-';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleTimeString('id-ID', {
+  const locale = lang.startsWith('en') ? 'en-US' : 'id-ID';
+  return d.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
-export function formatRelativeTime(date: string | Date | number): string {
+export function formatRelativeTime(date?: string | Date | number | null, lang: string = 'id'): string {
   if (!date) return '-';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '-';
+  const isEn = lang.startsWith('en');
   const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (diffSec < 60) return `${Math.max(1, diffSec)} detik lalu`;
+  if (diffSec < 60) return isEn ? `${Math.max(1, diffSec)}s ago` : `${Math.max(1, diffSec)} detik lalu`;
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} menit lalu`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} menit lalu`;
   const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour} jam lalu`;
+  if (diffHour < 24) return isEn ? `${diffHour}h ago` : `${diffHour} jam lalu`;
   const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 30) return `${diffDay} hari lalu`;
-  return formatDate(d);
+  if (diffDay < 30) return isEn ? `${diffDay}d ago` : `${diffDay} hari lalu`;
+  return formatDate(d, undefined, lang);
 }
 
 export function getDateRangeForPreset(preset: DatePreset, customVal?: any): { startDate: string; endDate: string } {

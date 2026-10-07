@@ -11,12 +11,35 @@ import {
   IDLE_TIMEOUT_MINUTES,
   APP_URL,
 } from '../config/env.ts';
-import { usersCol, tenantsCol, tokensCol, productsCol } from '../config/db.ts';
+import { usersCol, tenantsCol, tokensCol, productsCol, activeSessionsCol } from '../config/db.ts';
 import { getRedisClient, isRedisConnected } from '../config/redis.ts';
 import { tokenStore } from '../tokenStore.ts';
 import { generateTokens } from '../utils/tokens.ts';
 import { recordLoginHistory } from '../utils/loginLogger.ts';
 import { sendVerificationEmail } from '../utils/mailer.ts';
+
+export function parseDeviceAndBrowser(userAgent: string): { device: string; browser: string } {
+  const ua = userAgent || '';
+  let device = 'Desktop';
+  if (/mobile/i.test(ua)) device = 'Mobile';
+  else if (/tablet|ipad/i.test(ua)) device = 'Tablet';
+
+  if (/iphone/i.test(ua)) device = 'Mobile (iPhone)';
+  else if (/ipad/i.test(ua)) device = 'Tablet (iPad)';
+  else if (/android/i.test(ua)) device = /mobile/i.test(ua) ? 'Mobile (Android)' : 'Tablet (Android)';
+  else if (/windows/i.test(ua)) device = 'Desktop (Windows)';
+  else if (/macintosh|mac os x/i.test(ua)) device = 'Desktop (Mac)';
+  else if (/linux/i.test(ua)) device = 'Desktop (Linux)';
+
+  let browser = 'Browser';
+  if (/edg/i.test(ua)) browser = 'Microsoft Edge';
+  else if (/chrome|crios/i.test(ua)) browser = 'Google Chrome';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Mozilla Firefox';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Apple Safari';
+  else if (/opera|opr/i.test(ua)) browser = 'Opera';
+
+  return { device, browser };
+}
 
 export const RegisterSchema = z.object({
   tenantName: z.string().min(3, 'Nama warung/tenant minimal 3 karakter'),
@@ -215,8 +238,11 @@ export async function verifyEmail(req: Request, res: Response) {
       await redis.del(`verify:${token}`).catch(() => {});
     }
 
+    const clientIp = (req.headers['x-forwarded-for'] as string) || req.ip || '127.0.0.1';
+    const clientUa = (req.headers['user-agent'] as string) || '';
+
     // Generate access & refresh token pair with unique JTI claims
-    const { accessToken, refreshToken, refreshJti } = generateTokens({
+    const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -243,6 +269,29 @@ export async function verifyEmail(req: Request, res: Response) {
 
     // Store refresh token
     await tokenStore.storeRefreshToken(user.id, refreshJti, REFRESH_TOKEN_TTL_SEC);
+
+    // Record persistent active session
+    const { device, browser } = parseDeviceAndBrowser(clientUa);
+    const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SEC * 1000).toISOString();
+    await activeSessionsCol.insertOne({
+      id: `sess-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      userRole: user.role,
+      tenantId: user.tenantId || null,
+      tenantName: user.tenantName || 'Global Admin',
+      accessJti,
+      ipAddress: clientIp,
+      userAgent: clientUa,
+      device,
+      browser,
+      loginTime: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+      expiresAt,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    });
 
     return res.json({
       success: true,
@@ -374,7 +423,7 @@ export async function login(req: Request, res: Response) {
     });
 
     // Generate access & refresh token pair with unique JTI claims
-    const { accessToken, refreshToken, refreshJti } = generateTokens({
+    const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -402,6 +451,29 @@ export async function login(req: Request, res: Response) {
 
     // Store refresh token
     await tokenStore.storeRefreshToken(user.id, refreshJti, REFRESH_TOKEN_TTL_SEC);
+
+    // Record persistent active session
+    const { device, browser } = parseDeviceAndBrowser(clientUa);
+    const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SEC * 1000).toISOString();
+    await activeSessionsCol.insertOne({
+      id: `sess-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      userRole: user.role,
+      tenantId: user.tenantId || null,
+      tenantName: user.tenantName || 'Global Admin',
+      accessJti,
+      ipAddress: clientIp,
+      userAgent: clientUa,
+      device,
+      browser,
+      loginTime: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
+      expiresAt,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    });
 
     return res.json({
       success: true,
@@ -538,6 +610,11 @@ export async function logout(req: any, res: Response) {
       const nowSec = Math.floor(Date.now() / 1000);
       const ttlSeconds = decoded.exp ? Math.max(1, decoded.exp - nowSec) : ACCESS_TOKEN_TTL_SEC;
       await tokenStore.addToDenylist(decoded.jti, ttlSeconds);
+
+      await activeSessionsCol.updateOne(
+        { accessJti: decoded.jti },
+        { $set: { status: 'LOGGED_OUT', loggedOutAt: new Date().toISOString() } }
+      ).catch(() => {});
     }
 
     if (decoded && decoded.id) {

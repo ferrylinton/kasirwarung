@@ -7,6 +7,7 @@ export * from './dashboard.ts';
 export * from './log.ts';
 export * from './theme.ts';
 export * from './unit.ts';
+export * from './session.ts';
 
 export interface ToastMessage {
   id: string;

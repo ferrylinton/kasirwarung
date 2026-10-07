@@ -5,6 +5,8 @@ export function formatRupiah(amount: number): string {
   return `Rp ${Math.round(amount).toLocaleString('id-ID')}`;
 }
 
+export const formatCurrency = formatRupiah;
+
 export function formatNumber(num: number): string {
   if (isNaN(num) || num === null || num === undefined) {
     return '0';

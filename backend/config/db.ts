@@ -7,6 +7,7 @@ import {
   seedInitialLoginHistory,
   ensureSeedOrdersForAdmin,
   seedInitialUnits,
+  seedInitialActiveSessions,
 } from './seed.ts';
 
 let mongoClient: MongoClient | null = null;
@@ -23,6 +24,7 @@ export let tokensCol: any = new MemoryCollection('tokens');
 export let activityLogsCol: any = new MemoryCollection('activity_logs');
 export let loginHistoryCol: any = new MemoryCollection('login_history');
 export let unitsCol: any = new MemoryCollection('units');
+export let activeSessionsCol: any = new MemoryCollection('active_sessions');
 
 export async function connectDB() {
   if (!MONGODB_URI) {
@@ -31,6 +33,7 @@ export async function connectDB() {
     if (count === 0) {
       await seedMongoData();
     }
+    await seedInitialActiveSessions();
     return;
   }
 
@@ -51,6 +54,7 @@ export async function connectDB() {
     activityLogsCol = db.collection('activity_logs');
     loginHistoryCol = db.collection('login_history');
     unitsCol = db.collection('units');
+    activeSessionsCol = db.collection('active_sessions');
 
     // Create Indexes
     await tenantsCol.createIndex({ slug: 1 }, { unique: true }).catch(() => {});
@@ -62,6 +66,9 @@ export async function connectDB() {
     await activityLogsCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
     await activityLogsCol.createIndex({ tenantId: 1, module: 1 }).catch(() => {});
     await loginHistoryCol.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
+    await activeSessionsCol.createIndex({ accessJti: 1 }, { unique: true }).catch(() => {});
+    await activeSessionsCol.createIndex({ userId: 1, status: 1 }).catch(() => {});
+    await activeSessionsCol.createIndex({ tenantId: 1, status: 1 }).catch(() => {});
     await loginHistoryCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
     await loginHistoryCol.createIndex({ createdAt: -1 }).catch(() => {});
     await unitsCol.createIndex({ tenantId: 1, symbol: 1 }, { unique: true }).catch(() => {});

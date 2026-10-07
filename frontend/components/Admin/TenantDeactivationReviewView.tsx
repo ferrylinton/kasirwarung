@@ -23,7 +23,10 @@ import {
   MessageSquare,
   HelpCircle,
   ArrowRight,
+  Filter,
+  ChevronDown,
 } from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
@@ -32,8 +35,14 @@ import { TenantDeactivationRequestItem } from '../../types/tenant';
 import { formatDateTime, formatRelativeTime } from '../../utils/formatDate';
 import { formatCurrency } from '../../utils/formatCurrency';
 
-export const TenantDeactivationReviewView: React.FC = () => {
-  const { t } = useTranslation();
+export interface TenantDeactivationReviewViewProps {
+  onNavigateBack?: () => void;
+}
+
+export const TenantDeactivationReviewView: React.FC<TenantDeactivationReviewViewProps> = ({
+  onNavigateBack,
+}) => {
+  const { t, i18n } = useTranslation();
   const { token, user } = useAuthStore();
   const { addToast } = useToastStore();
 
@@ -52,6 +61,12 @@ export const TenantDeactivationReviewView: React.FC = () => {
   const [isSubmittingEval, setIsSubmittingEval] = useState(false);
 
   const fetchRequests = async (isManual = false) => {
+    if (!token) return;
+    if (user && user.role !== 'ADMIN') {
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isManual) setRefreshing(true);
       else setLoading(true);
@@ -59,12 +74,14 @@ export const TenantDeactivationReviewView: React.FC = () => {
       const res = await tenantService.getDeactivationRequests();
       setRequests(res.requests || []);
     } catch (err: any) {
-      console.error('Failed to load deactivation requests:', err);
-      addToast({
-        type: 'error',
-        title: 'Gagal Memuat Permohonan',
-        message: err.message || 'Terjadi kesalahan sistem saat memuat data',
-      });
+      console.warn('Deactivation requests fetch note:', err.message);
+      if (err.status !== 403) {
+        addToast({
+          type: 'error',
+          title: t('tenantDeactivationReview.toasts.loadErrorTitle', 'Gagal Memuat Permohonan'),
+          message: err.message || t('tenantDeactivationReview.toasts.loadErrorMsg', 'Terjadi kesalahan sistem saat memuat data'),
+        });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -72,8 +89,12 @@ export const TenantDeactivationReviewView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchRequests();
-  }, []);
+    if (token && (!user || user.role === 'ADMIN')) {
+      fetchRequests();
+    } else {
+      setLoading(false);
+    }
+  }, [token, user?.role]);
 
   // Filtered requests
   const filteredRequests = useMemo(() => {
@@ -116,8 +137,8 @@ export const TenantDeactivationReviewView: React.FC = () => {
     if (evalDecision === 'REJECT' && !rejectionReason.trim()) {
       addToast({
         type: 'warning',
-        title: 'Alasan Penolakan Wajib Diisi',
-        message: 'Mohon berikan penjelasan mengapa permohonan penonaktifan ini ditolak.',
+        title: t('tenantDeactivationReview.toasts.rejectionReasonRequiredTitle', 'Alasan Penolakan Wajib Diisi'),
+        message: t('tenantDeactivationReview.toasts.rejectionReasonRequiredMsg', 'Mohon berikan penjelasan mengapa permohonan penonaktifan ini ditolak.'),
       });
       return;
     }
@@ -133,14 +154,24 @@ export const TenantDeactivationReviewView: React.FC = () => {
       if (evalDecision === 'APPROVE') {
         addToast({
           type: 'success',
-          title: 'Penonaktifan Disetujui',
-          message: res.message || `Akun tenant "${evaluatingItem.tenantName}" telah dinonaktifkan.`,
+          title: t('tenantDeactivationReview.toasts.approvedTitle', 'Penonaktifan Disetujui'),
+          message:
+            res.message ||
+            t('tenantDeactivationReview.toasts.approvedMsg', {
+              defaultValue: `Akun tenant "${evaluatingItem.tenantName}" telah dinonaktifkan.`,
+              name: evaluatingItem.tenantName,
+            }),
         });
       } else {
         addToast({
           type: 'info',
-          title: 'Permohonan Ditolak',
-          message: res.message || `Permohonan penonaktifan tenant "${evaluatingItem.tenantName}" telah ditolak.`,
+          title: t('tenantDeactivationReview.toasts.rejectedTitle', 'Permohonan Ditolak'),
+          message:
+            res.message ||
+            t('tenantDeactivationReview.toasts.rejectedMsg', {
+              defaultValue: `Permohonan penonaktifan tenant "${evaluatingItem.tenantName}" telah ditolak.`,
+              name: evaluatingItem.tenantName,
+            }),
         });
       }
 
@@ -151,8 +182,8 @@ export const TenantDeactivationReviewView: React.FC = () => {
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Gagal Memproses Evaluasi',
-        message: err.message || 'Terjadi kesalahan sistem saat mengevaluasi permohonan',
+        title: t('tenantDeactivationReview.toasts.evalErrorTitle', 'Gagal Memproses Evaluasi'),
+        message: err.message || t('tenantDeactivationReview.toasts.evalErrorMsg', 'Terjadi kesalahan sistem saat mengevaluasi permohonan'),
       });
     } finally {
       setIsSubmittingEval(false);
@@ -165,21 +196,21 @@ export const TenantDeactivationReviewView: React.FC = () => {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
             <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-            <span>Menunggu Review</span>
+            <span>{t('tenantDeactivationReview.status.pending', 'Menunggu Review')}</span>
           </span>
         );
       case 'APPROVED':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
             <CheckCircle2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-            <span>Disetujui (Nonaktif)</span>
+            <span>{t('tenantDeactivationReview.status.approved', 'Disetujui (Nonaktif)')}</span>
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
             <XCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Ditolak (Tetap Aktif)</span>
+            <span>{t('tenantDeactivationReview.status.rejected', 'Ditolak (Tetap Aktif)')}</span>
           </span>
         );
       default:
@@ -190,6 +221,31 @@ export const TenantDeactivationReviewView: React.FC = () => {
         );
     }
   };
+
+  if (user && user.role !== 'ADMIN') {
+    return (
+      <div className="p-8 max-w-xl mx-auto text-center space-y-4 pt-16">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          {t('tenantDeactivationReview.guard.title', 'Akses Khusus Administrator')}
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t('tenantDeactivationReview.guard.desc', 'Halaman Review Penonaktifan Tenan hanya dapat diakses oleh Administrator Global KasirWarung.')}
+        </p>
+        {onNavigateBack && (
+          <button
+            type="button"
+            onClick={onNavigateBack}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs inline-flex items-center gap-2"
+          >
+            <span>{t('tenantDeactivationReview.guard.backBtn', 'Kembali ke Halaman Utama')}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -202,16 +258,19 @@ export const TenantDeactivationReviewView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Review Penonaktifan Tenan
+                {t('tenantDeactivationReview.pageTitle', 'Review Penonaktifan Tenan')}
               </h1>
               {stats.pending > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white animate-pulse">
-                  {stats.pending} perlu review
+                  {t('tenantDeactivationReview.needReviewBadge', {
+                    defaultValue: `${stats.pending} perlu review`,
+                    count: stats.pending,
+                  })}
                 </span>
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Evaluasi pengajuan penutupan akun warung dari Manajer Toko secara resmi dan aman
+              {t('tenantDeactivationReview.pageSubtitle', 'Evaluasi pengajuan penutupan akun warung dari Manajer Toko secara resmi dan aman')}
             </p>
           </div>
         </div>
@@ -224,7 +283,11 @@ export const TenantDeactivationReviewView: React.FC = () => {
             className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>{refreshing ? 'Menyinkronkan...' : 'Segarkan Data'}</span>
+            <span>
+              {refreshing
+                ? t('tenantDeactivationReview.syncingBtn', 'Menyinkronkan...')
+                : t('tenantDeactivationReview.refreshBtn', 'Segarkan Data')}
+            </span>
           </button>
         </div>
       </div>
@@ -241,7 +304,9 @@ export const TenantDeactivationReviewView: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Menunggu Review</span>
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+              {t('tenantDeactivationReview.stats.pendingTitle', 'Menunggu Review')}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Clock className="w-4 h-4" />
             </div>
@@ -250,7 +315,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
             {stats.pending}
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Perlu tindakan evaluasi Admin
+            {t('tenantDeactivationReview.stats.pendingSub', 'Perlu tindakan evaluasi Admin')}
           </span>
         </div>
 
@@ -264,7 +329,9 @@ export const TenantDeactivationReviewView: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Disetujui (Nonaktif)</span>
+            <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+              {t('tenantDeactivationReview.stats.approvedTitle', 'Disetujui (Nonaktif)')}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -273,7 +340,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
             {stats.approved}
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Akses warung telah ditutup
+            {t('tenantDeactivationReview.stats.approvedSub', 'Akses warung telah ditutup')}
           </span>
         </div>
 
@@ -287,7 +354,9 @@ export const TenantDeactivationReviewView: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Ditolak (Tetap Aktif)</span>
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              {t('tenantDeactivationReview.stats.rejectedTitle', 'Ditolak (Tetap Aktif)')}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <XCircle className="w-4 h-4" />
             </div>
@@ -296,7 +365,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
             {stats.rejected}
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Warung beroperasi normal
+            {t('tenantDeactivationReview.stats.rejectedSub', 'Warung beroperasi normal')}
           </span>
         </div>
 
@@ -310,7 +379,9 @@ export const TenantDeactivationReviewView: React.FC = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Total Permohonan</span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {t('tenantDeactivationReview.stats.totalTitle', 'Total Permohonan')}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
               <FileText className="w-4 h-4" />
             </div>
@@ -319,7 +390,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
             {stats.total}
           </div>
           <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-            Seluruh riwayat pengajuan
+            {t('tenantDeactivationReview.stats.totalSub', 'Seluruh riwayat pengajuan')}
           </span>
         </div>
       </div>
@@ -327,60 +398,129 @@ export const TenantDeactivationReviewView: React.FC = () => {
       {/* Filter Tabs & Search Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3.5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Segmented Filter Buttons */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setStatusTab('PENDING')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                statusTab === 'PENDING'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>Menunggu Review</span>
-              {stats.pending > 0 && (
-                <span className="px-1.5 py-0.2 rounded-md bg-amber-500 text-white text-[10px] font-bold">
-                  {stats.pending}
-                </span>
-              )}
-            </button>
+          {/* Radix UI Select for Status Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <span>{t('tenantDeactivationReview.statusLabel', 'Status:')}</span>
+            </span>
 
-            <button
-              type="button"
-              onClick={() => setStatusTab('APPROVED')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                statusTab === 'APPROVED'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>Disetujui ({stats.approved})</span>
-            </button>
+            <div className="min-w-[220px]">
+              <Select.Root
+                value={statusTab}
+                onValueChange={(val: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED') => setStatusTab(val)}
+              >
+                <Select.Trigger
+                  className="w-full inline-flex items-center justify-between px-3.5 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 focus:bg-white dark:focus:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all cursor-pointer shadow-2xs gap-2"
+                  aria-label={t('tenantDeactivationReview.statusLabel', 'Filter Status Permohonan')}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {statusTab === 'PENDING' && (
+                      <>
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="truncate">
+                          {t('tenantDeactivationReview.status.pending', 'Menunggu Review')} ({stats.pending})
+                        </span>
+                      </>
+                    )}
+                    {statusTab === 'APPROVED' && (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span className="truncate">
+                          {t('tenantDeactivationReview.status.approved', 'Disetujui')} ({stats.approved})
+                        </span>
+                      </>
+                    )}
+                    {statusTab === 'REJECTED' && (
+                      <>
+                        <XCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span className="truncate">
+                          {t('tenantDeactivationReview.status.rejected', 'Ditolak')} ({stats.rejected})
+                        </span>
+                      </>
+                    )}
+                    {statusTab === 'ALL' && (
+                      <>
+                        <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="truncate">
+                          {t('tenantDeactivationReview.status.all', 'Semua Permohonan')} ({stats.total})
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <Select.Icon className="text-slate-400 shrink-0 ml-1">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Select.Icon>
+                </Select.Trigger>
 
-            <button
-              type="button"
-              onClick={() => setStatusTab('REJECTED')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                statusTab === 'REJECTED'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>Ditolak ({stats.rejected})</span>
-            </button>
+                <Select.Portal>
+                  <Select.Content
+                    className="z-50 min-w-[230px] overflow-hidden bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl p-1 animate-in fade-in-80 zoom-in-95"
+                    position="popper"
+                    sideOffset={6}
+                  >
+                    <Select.Viewport className="p-1 space-y-0.5">
+                      <Select.Item
+                        value="PENDING"
+                        className="flex items-center justify-between px-2.5 py-2 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-900 dark:hover:text-amber-200 data-[highlighted]:bg-amber-50 dark:data-[highlighted]:bg-amber-950/40 data-[highlighted]:text-amber-900 dark:data-[highlighted]:text-amber-200 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>{t('tenantDeactivationReview.status.pending', 'Menunggu Review')}</span>
+                          {stats.pending > 0 && (
+                            <span className="px-1.5 py-0.2 rounded-md bg-amber-500 text-white text-[10px] font-bold">
+                              {stats.pending}
+                            </span>
+                          )}
+                        </div>
+                        <Select.ItemIndicator className="text-amber-600 dark:text-amber-400 pl-2">
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
 
-            <button
-              type="button"
-              onClick={() => setStatusTab('ALL')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                statusTab === 'ALL'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>Semua Permohonan ({stats.total})</span>
-            </button>
+                      <Select.Item
+                        value="APPROVED"
+                        className="flex items-center justify-between px-2.5 py-2 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-900 dark:hover:text-rose-200 data-[highlighted]:bg-rose-50 dark:data-[highlighted]:bg-rose-950/40 data-[highlighted]:text-rose-900 dark:data-[highlighted]:text-rose-200 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span>{t('tenantDeactivationReview.status.approved', 'Disetujui')} ({stats.approved})</span>
+                        </div>
+                        <Select.ItemIndicator className="text-rose-600 dark:text-rose-400 pl-2">
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="REJECTED"
+                        className="flex items-center justify-between px-2.5 py-2 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-900 dark:hover:text-emerald-200 data-[highlighted]:bg-emerald-50 dark:data-[highlighted]:bg-emerald-950/40 data-[highlighted]:text-emerald-900 dark:data-[highlighted]:text-emerald-200 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <XCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>{t('tenantDeactivationReview.status.rejected', 'Ditolak')} ({stats.rejected})</span>
+                        </div>
+                        <Select.ItemIndicator className="text-emerald-600 dark:text-emerald-400 pl-2">
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="ALL"
+                        className="flex items-center justify-between px-2.5 py-2 text-xs rounded-lg font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 data-[highlighted]:bg-slate-100 dark:data-[highlighted]:bg-slate-800 data-[highlighted]:text-slate-900 dark:data-[highlighted]:text-slate-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{t('tenantDeactivationReview.status.all', 'Semua Permohonan')} ({stats.total})</span>
+                        </div>
+                        <Select.ItemIndicator className="text-purple-600 dark:text-purple-400 pl-2">
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
           </div>
 
           {/* Search Input */}
@@ -390,7 +530,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama warung, manajer, alasan..."
+              placeholder={t('tenantDeactivationReview.searchPlaceholder', 'Cari nama warung, manajer, alasan...')}
               className="w-full pl-9.5 pr-8 py-2 rounded-xl text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
             />
             {searchQuery && (
@@ -408,14 +548,18 @@ export const TenantDeactivationReviewView: React.FC = () => {
         {searchQuery && (
           <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/60 text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              Menampilkan {filteredRequests.length} dari {requests.length} permohonan
+              {t('tenantDeactivationReview.showingFiltered', {
+                defaultValue: `Menampilkan ${filteredRequests.length} dari ${requests.length} permohonan`,
+                filtered: filteredRequests.length,
+                total: requests.length,
+              })}
             </span>
             <button
               type="button"
               onClick={() => setSearchQuery('')}
               className="text-purple-600 dark:text-purple-400 hover:underline font-medium cursor-pointer"
             >
-              Hapus Pencarian
+              {t('tenantDeactivationReview.clearSearch', 'Hapus Pencarian')}
             </button>
           </div>
         )}
@@ -426,7 +570,9 @@ export const TenantDeactivationReviewView: React.FC = () => {
         {loading ? (
           <div className="p-12 text-center space-y-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             <div className="inline-block w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-slate-500 dark:text-slate-400">Memuat permohonan penonaktifan tenan...</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('tenantDeactivationReview.empty.loading', 'Memuat permohonan penonaktifan tenan...')}
+            </p>
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center space-y-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -435,13 +581,13 @@ export const TenantDeactivationReviewView: React.FC = () => {
             </div>
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               {statusTab === 'PENDING'
-                ? 'Tidak ada permohonan yang perlu direview'
-                : 'Tidak ada permohonan yang sesuai filter'}
+                ? t('tenantDeactivationReview.empty.pendingTitle', 'Tidak ada permohonan yang perlu direview')
+                : t('tenantDeactivationReview.empty.filteredTitle', 'Tidak ada permohonan yang sesuai filter')}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               {statusTab === 'PENDING'
-                ? 'Seluruh permohonan penonaktifan akun warung telah dievaluasi atau belum ada manajer yang mengajukan permohonan baru.'
-                : 'Coba ubah kata kunci pencarian atau tab status permohonan.'}
+                ? t('tenantDeactivationReview.empty.pendingDesc', 'Seluruh permohonan penonaktifan akun warung telah dievaluasi atau belum ada manajer yang mengajukan permohonan baru.')
+                : t('tenantDeactivationReview.empty.filteredDesc', 'Coba ubah kata kunci pencarian atau status permohonan.')}
             </p>
           </div>
         ) : (
@@ -476,7 +622,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {item.tenantAddress} · Telp: {item.tenantPhone}
+                        {item.tenantAddress} · {t('tenantDeactivationReview.card.phone', 'Telp:')} {item.tenantPhone}
                       </p>
                     </div>
                   </div>
@@ -494,7 +640,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-slate-400">Diajukan oleh:</span>
+                        <span className="text-slate-400">{t('tenantDeactivationReview.card.submittedBy', 'Diajukan oleh:')}</span>
                         <strong className="text-slate-900 dark:text-slate-100">{req?.requestedBy}</strong>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -503,8 +649,8 @@ export const TenantDeactivationReviewView: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{formatDateTime(req?.requestedAt)}</span>
-                        <span className="text-slate-400">({formatRelativeTime(req?.requestedAt)})</span>
+                        <span>{formatDateTime(req?.requestedAt, i18n.language)}</span>
+                        <span className="text-slate-400">({formatRelativeTime(req?.requestedAt, i18n.language)})</span>
                       </div>
                     </div>
 
@@ -512,7 +658,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                     <div className="space-y-1">
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Alasan Pengajuan Penonaktifan:</span>
+                        <span>{t('tenantDeactivationReview.card.reasonTitle', 'Alasan Pengajuan Penonaktifan:')}</span>
                       </span>
                       <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                         {req?.reason}
@@ -523,7 +669,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                     {req?.notes && (
                       <div className="space-y-1">
                         <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          Catatan Tambahan dari Manajer:
+                          {t('tenantDeactivationReview.card.notesTitle', 'Catatan Tambahan dari Manajer:')}
                         </span>
                         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                           {req.notes}
@@ -542,18 +688,21 @@ export const TenantDeactivationReviewView: React.FC = () => {
                       >
                         <div className="flex items-center justify-between font-semibold">
                           <span className={isApproved ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}>
-                            {isApproved ? 'Status: Permohonan Telah Disetujui' : 'Status: Permohonan Telah Ditolak'}
+                            {isApproved
+                              ? t('tenantDeactivationReview.card.approvedStatus', 'Status: Permohonan Telah Disetujui')
+                              : t('tenantDeactivationReview.card.rejectedStatus', 'Status: Permohonan Telah Ditolak')}
                           </span>
                           <span className="text-slate-500 dark:text-slate-400 text-[11px]">
-                            {req?.evaluatedAt ? formatDateTime(req.evaluatedAt) : '-'}
+                            {req?.evaluatedAt ? formatDateTime(req.evaluatedAt, i18n.language) : '-'}
                           </span>
                         </div>
                         <div className="text-slate-600 dark:text-slate-300">
-                          Dievaluasi oleh: <strong>{req?.evaluatedBy || 'Administrator'}</strong>
+                          {t('tenantDeactivationReview.card.evaluatedBy', 'Dievaluasi oleh:')}{' '}
+                          <strong>{req?.evaluatedBy || t('tenantDeactivationReview.card.adminDefault', 'Administrator')}</strong>
                         </div>
                         {req?.rejectionReason && (
                           <div className="pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-200">
-                            <strong>Alasan Penolakan:</strong> {req.rejectionReason}
+                            <strong>{t('tenantDeactivationReview.card.rejectionReason', 'Alasan Penolakan:')}</strong> {req.rejectionReason}
                           </div>
                         )}
                       </div>
@@ -564,43 +713,43 @@ export const TenantDeactivationReviewView: React.FC = () => {
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-3 flex flex-col justify-between">
                     <div>
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2.5">
-                        Ringkasan Data Warung
+                        {t('tenantDeactivationReview.card.storeSummary', 'Ringkasan Data Warung')}
                       </span>
                       <div className="space-y-2 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <Package className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Total Produk:</span>
+                            <span>{t('tenantDeactivationReview.card.totalProducts', 'Total Produk:')}</span>
                           </span>
                           <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {item.productCount} SKU
+                            {item.productCount} {t('tenantDeactivationReview.card.skuUnit', 'SKU')}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <Users2 className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Staf / Pengguna:</span>
+                            <span>{t('tenantDeactivationReview.card.staffUsers', 'Staf / Pengguna:')}</span>
                           </span>
                           <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {item.userCount} akun
+                            {item.userCount} {t('tenantDeactivationReview.card.accountsUnit', 'akun')}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <Receipt className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Total Pesanan:</span>
+                            <span>{t('tenantDeactivationReview.card.totalOrders', 'Total Pesanan:')}</span>
                           </span>
                           <span className="font-semibold text-slate-900 dark:text-slate-100">
-                            {item.orderCount} transaksi
+                            {item.orderCount} {t('tenantDeactivationReview.card.transactionsUnit', 'transaksi')}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 dark:border-slate-700">
                           <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>Total Omzet:</span>
+                            <span>{t('tenantDeactivationReview.card.totalRevenue', 'Total Omzet:')}</span>
                           </span>
                           <span className="font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(item.totalRevenue)}
@@ -621,7 +770,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                           className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-2xs cursor-pointer"
                         >
                           <Ban className="w-3.5 h-3.5" />
-                          <span>Setujui Penonaktifan</span>
+                          <span>{t('tenantDeactivationReview.card.approveBtn', 'Setujui Penonaktifan')}</span>
                         </button>
 
                         <button
@@ -634,12 +783,12 @@ export const TenantDeactivationReviewView: React.FC = () => {
                           className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
-                          <span>Tolak Permohonan</span>
+                          <span>{t('tenantDeactivationReview.card.rejectBtn', 'Tolak Permohonan')}</span>
                         </button>
                       </div>
                     ) : (
                       <div className="pt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                        Permohonan telah dievaluasi
+                        {t('tenantDeactivationReview.card.alreadyEvaluated', 'Permohonan telah dievaluasi')}
                       </div>
                     )}
                   </div>
@@ -673,11 +822,11 @@ export const TenantDeactivationReviewView: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     {evalDecision === 'APPROVE'
-                      ? 'Konfirmasi Persetujuan Penonaktifan'
-                      : 'Konfirmasi Penolakan Permohonan'}
+                      ? t('tenantDeactivationReview.modal.approveTitle', 'Konfirmasi Persetujuan Penonaktifan')
+                      : t('tenantDeactivationReview.modal.rejectTitle', 'Konfirmasi Penolakan Permohonan')}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Tenant: {evaluatingItem.tenantName}
+                    {t('tenantDeactivationReview.modal.tenantLabel', 'Tenant:')} {evaluatingItem.tenantName}
                   </p>
                 </div>
               </div>
@@ -697,17 +846,20 @@ export const TenantDeactivationReviewView: React.FC = () => {
                 <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-200 space-y-1.5 text-xs">
                   <div className="font-semibold flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>Dampak Penonaktifan Akun Warung:</span>
+                    <span>{t('tenantDeactivationReview.modal.impactTitle', 'Dampak Penonaktifan Akun Warung:')}</span>
                   </div>
                   <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
-                    <li>Status tenant akan diubah menjadi <strong>INACTIVE (Dinonaktifkan)</strong>.</li>
-                    <li>Seluruh akses kasir dan manajer toko untuk warung ini akan <strong>otomatis ditutup</strong> dan sesi login aktif akan diakhiri.</li>
-                    <li>Katalog produk tidak dapat ditransaksikan di mesin kasir POS.</li>
+                    <li>{t('tenantDeactivationReview.modal.impactPoint1', 'Status tenant akan diubah menjadi INACTIVE (Dinonaktifkan).')}</li>
+                    <li>{t('tenantDeactivationReview.modal.impactPoint2', 'Seluruh akses kasir dan manajer toko untuk warung ini akan otomatis ditutup dan sesi login aktif akan diakhiri.')}</li>
+                    <li>{t('tenantDeactivationReview.modal.impactPoint3', 'Katalog produk tidak dapat ditransaksikan di mesin kasir POS.')}</li>
                   </ul>
                 </div>
 
                 <p>
-                  Apakah Anda yakin menyetujui permohonan dari <strong>{evaluatingItem.request?.requestedBy}</strong> dengan alasan:
+                  {t('tenantDeactivationReview.modal.approvePrompt', {
+                    defaultValue: `Apakah Anda yakin menyetujui permohonan dari ${evaluatingItem.request?.requestedBy} dengan alasan:`,
+                    name: evaluatingItem.request?.requestedBy,
+                  })}
                 </p>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs italic text-slate-700 dark:text-slate-300">
                   "{evaluatingItem.request?.reason}"
@@ -717,18 +869,24 @@ export const TenantDeactivationReviewView: React.FC = () => {
               /* Content for REJECT */
               <div className="space-y-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 <p>
-                  Permohonan penonaktifan warung <strong>{evaluatingItem.tenantName}</strong> akan ditolak. Akun warung akan tetap berstatus <strong>ACTIVE</strong> dan beroperasi secara normal.
+                  {t('tenantDeactivationReview.modal.rejectPrompt', {
+                    defaultValue: `Permohonan penonaktifan warung ${evaluatingItem.tenantName} akan ditolak. Akun warung akan tetap berstatus ACTIVE dan beroperasi secara normal.`,
+                    name: evaluatingItem.tenantName,
+                  })}
                 </p>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                    Alasan / Catatan Penolakan untuk Manajer <span className="text-rose-500">*</span>
+                    {t('tenantDeactivationReview.modal.rejectionReasonLabel', 'Alasan / Catatan Penolakan untuk Manajer')} <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     rows={3}
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Contoh: Masih terdapat tagihan atau pesanan tertunda, mohon selesaikan terlebih dahulu sebelum mengajukan kembali."
+                    placeholder={t(
+                      'tenantDeactivationReview.modal.rejectionReasonPlaceholder',
+                      'Contoh: Masih terdapat tagihan atau pesanan tertunda, mohon selesaikan terlebih dahulu sebelum mengajukan kembali.'
+                    )}
                     className="w-full p-3 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                     required
                   />
@@ -743,7 +901,7 @@ export const TenantDeactivationReviewView: React.FC = () => {
                 disabled={isSubmittingEval}
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
               >
-                Batal
+                {t('tenantDeactivationReview.modal.cancelBtn', 'Batal')}
               </button>
               <button
                 type="button"
@@ -758,13 +916,13 @@ export const TenantDeactivationReviewView: React.FC = () => {
                 {isSubmittingEval ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Memproses...</span>
+                    <span>{t('tenantDeactivationReview.modal.processingBtn', 'Memproses...')}</span>
                   </>
                 ) : (
                   <span>
                     {evalDecision === 'APPROVE'
-                      ? 'Ya, Setujui Penonaktifan'
-                      : 'Kirim Penolakan'}
+                      ? t('tenantDeactivationReview.modal.confirmApproveBtn', 'Ya, Setujui Penonaktifan')
+                      : t('tenantDeactivationReview.modal.sendRejectBtn', 'Kirim Penolakan')}
                   </span>
                 )}
               </button>

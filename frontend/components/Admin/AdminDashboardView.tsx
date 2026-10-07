@@ -19,16 +19,24 @@ import {
   Layers,
   ChevronDown,
   Check,
+  ShieldAlert,
+  ArrowRight,
 } from 'lucide-react';
 import * as Select from '@radix-ui/react-select';
 import { AdminDashboardData, Tenant } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 
+export interface AdminDashboardViewProps {
+  onNavigateToRequests?: () => void;
+}
+
 type ValuePiece = Date | null;
 type DatePickerValue = ValuePiece | [ValuePiece, ValuePiece];
 type DatePreset = 'today' | 'week' | 'month' | '3months' | 'custom';
 
-export const AdminDashboardView: React.FC = () => {
+export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
+  onNavigateToRequests,
+}) => {
   const { t } = useTranslation();
   const { token, user, refreshTokenIfExpiring } = useAuthStore();
 
@@ -266,6 +274,35 @@ export const AdminDashboardView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Pending Tenant Deactivation Notice */}
+      {tenants.filter((t) => t.deactivationRequest?.status === 'PENDING').length > 0 && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                Terdapat {tenants.filter((t) => t.deactivationRequest?.status === 'PENDING').length} Permohonan Penonaktifan Tenan
+              </div>
+              <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                Manajer toko mengajukan penonaktifan akun warung dan menunggu evaluasi resmi dari Administrator.
+              </div>
+            </div>
+          </div>
+          {onNavigateToRequests && (
+            <button
+              type="button"
+              onClick={onNavigateToRequests}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-center shadow-xs"
+            >
+              <span>Review Permohonan</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 2. Filter Bar with Date Presets & react-date-picker */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">

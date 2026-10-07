@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Layers,
@@ -25,6 +25,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
+import { tenantService } from '../services/tenantService';
 
 export type NavTab =
   | 'admin-dashboard'
@@ -40,6 +41,7 @@ export type NavTab =
   | 'tenants'
   | 'tenant-requests'
   | 'user-management'
+  | 'active-sessions'
   | 'tenant-info'
   | 'activity-log'
   | 'login-history'
@@ -72,6 +74,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const tenantName = tenant?.name || 'Berkah Jaya';
   const role = user?.role || 'CASHIER';
+
+  const [pendingDeactivationCount, setPendingDeactivationCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (role !== 'ADMIN') return;
+
+    let isMounted = true;
+    const fetchPending = async () => {
+      try {
+        const res = await tenantService.getDeactivationRequests();
+        if (isMounted) {
+          setPendingDeactivationCount(res.pendingCount || 0);
+        }
+      } catch {
+        // quiet fallback
+      }
+    };
+
+    fetchPending();
+    const interval = setInterval(fetchPending, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [role, currentTab]);
 
   const userInitials = (user?.name || 'U')
     .split(' ')
@@ -238,12 +265,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'tenant-requests' as NavTab,
           label: t('nav.tenantRequests', 'Review Nonaktif Tenan'),
           icon: ShieldAlert,
+          badge: pendingDeactivationCount > 0 ? `${pendingDeactivationCount}` : undefined,
+          hasDot: pendingDeactivationCount > 0,
           roles: ['ADMIN'],
         },
         {
           id: 'user-management' as NavTab,
           label: t('nav.userManagement', 'Manajemen User'),
           icon: Users2,
+          roles: ['ADMIN'],
+        },
+        {
+          id: 'active-sessions' as NavTab,
+          label: t('nav.activeSessions', 'Sesi & Token Aktif'),
+          icon: KeyRound,
           roles: ['ADMIN'],
         },
       ],
@@ -373,6 +408,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {cartItemCount > 0 ? cartItemCount : savedOrdersCount}
                         </span>
                       )}
+                      {/* Collapsed badge overlay for Tenant Requests */}
+                      {isCollapsed && item.id === 'tenant-requests' && pendingDeactivationCount > 0 && (
+                        <span
+                          className="absolute -top-1.5 -right-2 px-1 min-w-[16px] h-4 rounded-full text-[9px] font-mono font-bold flex items-center justify-center shadow-xs bg-amber-500 text-white border border-white dark:border-slate-900 animate-pulse"
+                        >
+                          {pendingDeactivationCount}
+                        </span>
+                      )}
                     </div>
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
@@ -382,7 +425,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {item.badge && (
                         <span
                           className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold transition-colors ${
-                            isPosItem && cartItemCount > 0
+                            item.id === 'tenant-requests' && pendingDeactivationCount > 0
+                              ? isActive
+                                ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-300'
+                                : 'bg-amber-500 text-white shadow-2xs animate-pulse'
+                              : isPosItem && cartItemCount > 0
                               ? isActive
                                 ? 'bg-black/25 text-white ring-1 ring-white/30'
                                 : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60'

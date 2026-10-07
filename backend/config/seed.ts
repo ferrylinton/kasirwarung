@@ -7,6 +7,7 @@ import {
   activityLogsCol,
   loginHistoryCol,
   unitsCol,
+  activeSessionsCol,
 } from './db.ts';
 
 export async function seedMongoData() {
@@ -854,5 +855,119 @@ export async function seedInitialUnits(tenantId: string) {
     console.log(`✅ Seeded ${docs.length} standard cashier units for tenant: ${tenantId}`);
   } catch (err) {
     console.warn(`seedInitialUnits non-fatal for ${tenantId}:`, err);
+  }
+}
+
+export async function seedInitialActiveSessions() {
+  try {
+    const existing = await activeSessionsCol.countDocuments();
+    if (existing > 0) return;
+
+    const now = Date.now();
+    const activeSessions = [
+      {
+        id: 'sess-seed-cashier-1',
+        userId: 'user-cashier-1',
+        userName: 'Bu Siti (Kasir Utama)',
+        userEmail: 'kasir@berkahjaya.com',
+        userRole: 'CASHIER',
+        tenantId: 'tenant-berkah-jaya',
+        tenantName: 'Berkah Jaya',
+        accessJti: 'acc-user-cashier-1-seed-01',
+        ipAddress: '192.168.1.105',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36',
+        device: 'Desktop (Windows)',
+        browser: 'Google Chrome 128',
+        loginTime: new Date(now - 25 * 60 * 1000).toISOString(),
+        lastActive: new Date(now - 2 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 23 * 60 * 60 * 1000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(now - 25 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'sess-seed-manager-1',
+        userId: 'user-manager-1',
+        userName: 'Bu Siti Rahma',
+        userEmail: 'manager@berkahjaya.com',
+        userRole: 'MANAGER',
+        tenantId: 'tenant-berkah-jaya',
+        tenantName: 'Berkah Jaya',
+        accessJti: 'acc-user-manager-1-seed-02',
+        ipAddress: '180.252.164.22',
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        device: 'Mobile (iOS iPhone)',
+        browser: 'Mobile Safari 17.5',
+        loginTime: new Date(now - 60 * 60 * 1000).toISOString(),
+        lastActive: new Date(now - 8 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 23 * 60 * 60 * 1000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(now - 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'sess-seed-manager-2',
+        userId: 'user-manager-2',
+        userName: 'Cak Holil (Owner)',
+        userEmail: 'cak.holil@madura24.com',
+        userRole: 'MANAGER',
+        tenantId: 'tenant-madura-24jam',
+        tenantName: 'Warung Madura 24 Jam',
+        accessJti: 'acc-user-manager-2-seed-03',
+        ipAddress: '114.122.204.89',
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/127.0.0.0 Mobile Safari/537.36',
+        device: 'Mobile (Android Galaxy)',
+        browser: 'Chrome Mobile 127',
+        loginTime: new Date(now - 45 * 60 * 1000).toISOString(),
+        lastActive: new Date(now - 5 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 23 * 60 * 60 * 1000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(now - 45 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'sess-seed-cashier-2',
+        userId: 'user-cashier-2',
+        userName: 'Cak Mahmud',
+        userEmail: 'kasir.mahmud@madura24.com',
+        userRole: 'CASHIER',
+        tenantId: 'tenant-madura-24jam',
+        tenantName: 'Warung Madura 24 Jam',
+        accessJti: 'acc-user-cashier-2-seed-04',
+        ipAddress: '114.122.204.91',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edg/127.0.0.0',
+        device: 'Desktop (Windows POS)',
+        browser: 'Microsoft Edge 127',
+        loginTime: new Date(now - 180 * 60 * 1000).toISOString(),
+        lastActive: new Date(now - 14 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 21 * 60 * 60 * 1000).toISOString(),
+        status: 'ACTIVE',
+        createdAt: new Date(now - 180 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'sess-seed-revoked-1',
+        userId: 'user-cashier-guest',
+        userName: 'Staf Magang Toko',
+        userEmail: 'magang@berkahjaya.com',
+        userRole: 'CASHIER',
+        tenantId: 'tenant-berkah-jaya',
+        tenantName: 'Berkah Jaya',
+        accessJti: 'acc-user-cashier-guest-revoked',
+        ipAddress: '192.168.1.120',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/128.0',
+        device: 'Desktop (Windows)',
+        browser: 'Mozilla Firefox 128',
+        loginTime: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+        lastActive: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+        expiresAt: new Date(now + 19 * 60 * 60 * 1000).toISOString(),
+        status: 'REVOKED',
+        revokedAt: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+        revokedBy: 'admin@kasirwarung.com',
+        revokeReason: 'Sesi dinonaktifkan: Selesai jam shift operasional kasir.',
+        createdAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    await activeSessionsCol.insertMany(activeSessions);
+    console.log(`✅ Seeded ${activeSessions.length} initial active & logged-in user sessions.`);
+  } catch (err) {
+    console.warn('seedInitialActiveSessions non-fatal:', err);
   }
 }

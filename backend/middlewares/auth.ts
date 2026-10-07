@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/env.ts';
 import { tokenStore } from '../tokenStore.ts';
-import { tenantsCol, usersCol } from '../config/db.ts';
+import { tenantsCol, usersCol, activeSessionsCol } from '../config/db.ts';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -21,14 +21,17 @@ export async function authenticateToken(req: any, res: any, next: NextFunction) 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    // Check if token's jti is in the Token Denylist
+    // Check if token's jti is in the Token Denylist or revoked in session store
     if (decoded.jti) {
       const revoked = await tokenStore.isDenylisted(decoded.jti);
-      if (revoked) {
+      const revokedSession = !revoked
+        ? await activeSessionsCol.findOne({ accessJti: decoded.jti, status: 'REVOKED' })
+        : true;
+      if (revoked || revokedSession) {
         return res.status(401).json({
           success: false,
           code: 'TOKEN_REVOKED',
-          message: 'Sesi telah berakhir atau Anda telah logout. Token berada dalam denylist.',
+          message: 'Sesi telah dinonaktifkan oleh Administrator atau Anda telah logout. Token tidak lagi berlaku.',
         });
       }
     }

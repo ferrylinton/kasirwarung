@@ -376,11 +376,17 @@ export async function evaluateTenantDeactivation(req: any, res: Response) {
   }
 }
 
-// 7. Get all tenant deactivation requests with tenant details and statistics (ADMIN only)
-export async function getTenantDeactivationRequests(req: Request, res: Response) {
+// 7. Get tenant deactivation requests with tenant details and statistics (ADMIN sees all, MANAGER sees own tenant)
+export async function getTenantDeactivationRequests(req: any, res: Response) {
   try {
+    const isManager = req.user?.role === 'MANAGER';
+    const filter: any = { deactivationRequest: { $ne: null } };
+    if (isManager && req.user?.tenantId) {
+      filter.id = req.user.tenantId;
+    }
+
     const tenantsWithRequests = await tenantsCol
-      .find({ deactivationRequest: { $ne: null } })
+      .find(filter)
       .toArray();
 
     const requests = await Promise.all(
