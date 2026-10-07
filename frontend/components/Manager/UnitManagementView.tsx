@@ -7,12 +7,12 @@ import {
   Trash2,
   Package,
   Boxes,
-  Droplets,
-  Layers,
-  HelpCircle,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Check,
   AlertCircle,
   CheckCircle2,
   X,
@@ -25,12 +25,13 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Product, CashierUnit, UnitCategory, UnitStats } from '../../types';
+import { Product, CashierUnit, UnitStats } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
 import { ConfirmationModal } from '../Modals/ConfirmationModal';
 import { UnitModal } from './UnitModal';
 import { PageSizeSelect } from './PageSizeSelect';
+import * as Select from '@radix-ui/react-select';
 
 interface UnitManagementViewProps {
   products: Product[];
@@ -53,7 +54,6 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
 
   // Search & Filtering
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [sortField, setSortField] = useState<'name' | 'symbol' | 'productCount'>('productCount');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -111,7 +111,6 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
   const handleSaveUnit = async (data: {
     name: string;
     symbol: string;
-    category: UnitCategory;
     description: string;
     syncProducts?: boolean;
   }) => {
@@ -249,59 +248,17 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
     }
   };
 
-  // Category Badges & Helpers
-  const getCategoryMeta = (cat: UnitCategory | string) => {
-    switch (cat) {
-      case 'ECERAN':
-        return {
-          label: 'Eceran Satuan',
-          badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-          icon: Package,
-        };
-      case 'KEMASAN':
-        return {
-          label: 'Kemasan / Grosir',
-          badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-          icon: Boxes,
-        };
-      case 'TIMBANGAN':
-        return {
-          label: 'Timbangan / Berat',
-          badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-          icon: Scale,
-        };
-      case 'VOLUME':
-        return {
-          label: 'Volume / Cairan',
-          badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
-          icon: Droplets,
-        };
-      case 'IKATAN':
-        return {
-          label: 'Ikatan / Sayur',
-          badge: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-          icon: Layers,
-        };
-      default:
-        return {
-          label: 'Lainnya',
-          badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
-          icon: HelpCircle,
-        };
-    }
-  };
-
   // Filtered & Sorted Units
   const filteredUnits = useMemo(() => {
     return units
       .filter((u) => {
-        const matchesCategory = selectedCategory === 'ALL' || u.category === selectedCategory;
-        const matchesSearch =
-          !search ||
-          u.name.toLowerCase().includes(search.toLowerCase()) ||
-          u.symbol.toLowerCase().includes(search.toLowerCase()) ||
-          (u.description && u.description.toLowerCase().includes(search.toLowerCase()));
-        return matchesCategory && matchesSearch;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          u.symbol.toLowerCase().includes(q) ||
+          (u.description && u.description.toLowerCase().includes(q))
+        );
       })
       .sort((a, b) => {
         let valA: any = a[sortField];
@@ -322,7 +279,7 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
         if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [units, search, selectedCategory, sortField, sortOrder]);
+  }, [units, search, sortField, sortOrder]);
 
   // Pagination Calculation
   const totalPages = Math.ceil(filteredUnits.length / pageSize) || 1;
@@ -453,58 +410,57 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
           </div>
         </div>
 
-        {/* Eceran Satuan */}
+        {/* Satuan Digunakan */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
-              Satuan Eceran
+              Digunakan di Produk
             </span>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1">
-              {stats?.eceranCount ?? units.filter((u) => u.category === 'ECERAN').length}
+              {units.filter((u) => (u.productCount || 0) > 0).length}
             </div>
-            <span className="text-[11px] text-slate-400">pcs, bks, sachet, butir</span>
+            <span className="text-[11px] text-slate-400">Aktif terhubung katalog</span>
           </div>
           <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Kemasan & Grosir */}
+        {/* Satuan Belum Digunakan */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
-              Kemasan / Grosir
+              Satuan Tersedia
             </span>
             <div className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-1">
-              {stats?.kemasanCount ?? units.filter((u) => u.category === 'KEMASAN').length}
+              {units.filter((u) => !u.productCount).length}
             </div>
-            <span className="text-[11px] text-slate-400">dus, renceng, karung, slop</span>
+            <span className="text-[11px] text-slate-400">Siap dipakai produk baru</span>
           </div>
           <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Boxes className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Timbangan & Volume */}
+        {/* Total Relasi Produk */}
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
-              Timbangan & Cairan
+              Total Penggunaan Produk
             </span>
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono mt-1">
-              {(stats?.timbanganCount || 0) + (stats?.volumeCount || 0) ||
-                units.filter((u) => u.category === 'TIMBANGAN' || u.category === 'VOLUME').length}
+            <div className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono mt-1">
+              {units.reduce((acc, u) => acc + (u.productCount || 0), 0)}
             </div>
-            <span className="text-[11px] text-slate-400">kg, gr, ons, liter, botol</span>
+            <span className="text-[11px] text-slate-400">Total relasi produk</span>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Droplets className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <Store className="w-5 h-5" />
           </div>
         </div>
       </div>
 
-      {/* 3. Toolbar: Search, Category Filter Tabs & Sorting */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3.5 shadow-2xs">
+      {/* 3. Toolbar: Search & Sorting */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Bar */}
           <div className="relative flex-1 max-w-md">
@@ -532,23 +488,98 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
 
           {/* Right Toolbar Controls: Sort & Page Size */}
           <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+            {/* Sort Select */}
             <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
               <span className="hidden sm:inline">Urutkan:</span>
-              <select
+              <Select.Root
                 value={`${sortField}-${sortOrder}`}
-                onChange={(e) => {
-                  const [field, order] = e.target.value.split('-') as [any, any];
+                onValueChange={(val) => {
+                  const [field, order] = val.split('-') as [any, any];
                   setSortField(field);
                   setSortOrder(order);
                 }}
-                className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:border-theme-primary focus:outline-hidden cursor-pointer shadow-2xs"
               >
-                <option value="productCount-desc">Terbanyak Dipakai Produk</option>
-                <option value="productCount-asc">Paling Sedikit Dipakai</option>
-                <option value="name-asc">Nama Satuan (A-Z)</option>
-                <option value="name-desc">Nama Satuan (Z-A)</option>
-                <option value="symbol-asc">Simbol Kasir (A-Z)</option>
-              </select>
+                <Select.Trigger
+                  className="inline-flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer outline-hidden focus:ring-2 focus:ring-theme-primary/20 min-w-[180px]"
+                  aria-label="Urutkan data satuan"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                    <Select.Value />
+                  </div>
+                  <Select.Icon className="text-slate-400 dark:text-slate-500 shrink-0">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Select.Icon>
+                </Select.Trigger>
+
+                <Select.Portal>
+                  <Select.Content
+                    className="z-50 min-w-[200px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-1.5 animate-in fade-in-80 zoom-in-95"
+                    position="popper"
+                    sideOffset={6}
+                  >
+                    <Select.ScrollUpButton className="flex items-center justify-center py-1 text-slate-400 cursor-pointer">
+                      <ChevronUp className="w-4 h-4" />
+                    </Select.ScrollUpButton>
+
+                    <Select.Viewport className="p-1">
+                      <Select.Item
+                        value="productCount-desc"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                      >
+                        <Select.ItemText>Terbanyak Dipakai Produk</Select.ItemText>
+                        <Select.ItemIndicator className="text-theme-primary pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="productCount-asc"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                      >
+                        <Select.ItemText>Paling Sedikit Dipakai</Select.ItemText>
+                        <Select.ItemIndicator className="text-theme-primary pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="name-asc"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                      >
+                        <Select.ItemText>Nama Satuan (A-Z)</Select.ItemText>
+                        <Select.ItemIndicator className="text-theme-primary pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="name-desc"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                      >
+                        <Select.ItemText>Nama Satuan (Z-A)</Select.ItemText>
+                        <Select.ItemIndicator className="text-theme-primary pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+
+                      <Select.Item
+                        value="symbol-asc"
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-xl font-medium text-slate-700 dark:text-slate-300 cursor-pointer outline-hidden select-none hover:bg-theme-light hover:text-theme-text data-[highlighted]:bg-theme-light data-[highlighted]:text-theme-text transition-colors"
+                      >
+                        <Select.ItemText>Simbol Kasir (A-Z)</Select.ItemText>
+                        <Select.ItemIndicator className="text-theme-primary pl-2">
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    </Select.Viewport>
+
+                    <Select.ScrollDownButton className="flex items-center justify-center py-1 text-slate-400 cursor-pointer">
+                      <ChevronDown className="w-4 h-4" />
+                    </Select.ScrollDownButton>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
             </div>
 
             <PageSizeSelect
@@ -560,47 +591,6 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
               options={[10, 20, 50]}
             />
           </div>
-        </div>
-
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-          {[
-            { id: 'ALL', label: 'Semua Kategori', count: units.length },
-            { id: 'ECERAN', label: 'Eceran Satuan', count: units.filter((u) => u.category === 'ECERAN').length },
-            { id: 'KEMASAN', label: 'Kemasan / Grosir', count: units.filter((u) => u.category === 'KEMASAN').length },
-            { id: 'TIMBANGAN', label: 'Timbangan / Berat', count: units.filter((u) => u.category === 'TIMBANGAN').length },
-            { id: 'VOLUME', label: 'Volume / Cairan', count: units.filter((u) => u.category === 'VOLUME').length },
-            { id: 'IKATAN', label: 'Ikatan / Sayur', count: units.filter((u) => u.category === 'IKATAN').length },
-            { id: 'LAINNYA', label: 'Lainnya', count: units.filter((u) => u.category === 'LAINNYA').length },
-          ].map((tab) => {
-            const isSelected = selectedCategory === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(tab.id);
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? 'btn-theme-primary text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -619,7 +609,6 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3.5 px-4">Kategori</th>
                 <th className="py-3.5 px-4 hidden md:table-cell">Keterangan / Penggunaan</th>
                 <th
                   onClick={() => handleSort('productCount')}
@@ -636,7 +625,7 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={4} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="w-6 h-6 border-2 border-theme-primary border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-xs">Memuat daftar istilah satuan kasir...</span>
@@ -645,7 +634,7 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
                 </tr>
               ) : paginatedUnits.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center">
+                  <td colSpan={4} className="py-12 text-center">
                     <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3">
                       <AlertCircle className="w-6 h-6" />
                     </div>
@@ -653,21 +642,20 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
                       Tidak Ada Istilah Satuan Ditemukan
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                      {search || selectedCategory !== 'ALL'
-                        ? 'Tidak ada satuan yang cocok dengan kata kunci atau filter yang dipilih.'
+                      {search
+                        ? 'Tidak ada satuan yang cocok dengan kata kunci pencarian.'
                         : 'Belum ada satuan kasir yang terdaftar untuk toko Anda.'}
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearch('');
-                          setSelectedCategory('ALL');
-                        }}
-                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
-                      >
-                        Reset Filter
-                      </button>
+                      {search && (
+                        <button
+                          type="button"
+                          onClick={() => setSearch('')}
+                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
+                        >
+                          Reset Pencarian
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setShowSeedConfirm(true)}
@@ -681,8 +669,6 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
                 </tr>
               ) : (
                 paginatedUnits.map((u) => {
-                  const catMeta = getCategoryMeta(u.category);
-                  const CatIcon = catMeta.icon;
                   const isUsageActive = (u.productCount || 0) > 0;
 
                   return (
@@ -705,21 +691,8 @@ export const UnitManagementView: React.FC<UnitManagementViewProps> = ({
                                 {u.symbol}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-400 font-mono block sm:hidden mt-0.5">
-                              {catMeta.label}
-                            </span>
                           </div>
                         </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border ${catMeta.badge}`}
-                        >
-                          <CatIcon className="w-3 h-3 shrink-0" />
-                          <span>{catMeta.label}</span>
-                        </span>
                       </td>
 
                       {/* Description */}

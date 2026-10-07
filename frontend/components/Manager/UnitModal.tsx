@@ -2,16 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   Scale,
-  Package,
-  Boxes,
-  Droplets,
-  Layers,
-  HelpCircle,
   Loader2,
   Check,
   RefreshCw,
 } from 'lucide-react';
-import { CashierUnit, UnitCategory } from '../../types';
+import { CashierUnit } from '../../types';
 
 interface UnitModalProps {
   isOpen: boolean;
@@ -20,62 +15,10 @@ interface UnitModalProps {
   onSubmit: (data: {
     name: string;
     symbol: string;
-    category: UnitCategory;
     description: string;
     syncProducts?: boolean;
   }) => Promise<void>;
 }
-
-const CATEGORIES: Array<{
-  id: UnitCategory;
-  label: string;
-  desc: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-}> = [
-  {
-    id: 'ECERAN',
-    label: 'Eceran Satuan',
-    desc: 'Pieces, bungkus, butir, sachet eceran',
-    icon: Package,
-    color: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800',
-  },
-  {
-    id: 'KEMASAN',
-    label: 'Kemasan & Grosir',
-    desc: 'Dus, karton, renceng, karung, slop, pack',
-    icon: Boxes,
-    color: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800',
-  },
-  {
-    id: 'TIMBANGAN',
-    label: 'Timbangan / Berat',
-    desc: 'Kilogram (kg), gram (gr), ons, kuintal',
-    icon: Scale,
-    color: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800',
-  },
-  {
-    id: 'VOLUME',
-    label: 'Volume / Cairan',
-    desc: 'Liter, botol, kaleng, cup, jerigen',
-    icon: Droplets,
-    color: 'text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-800',
-  },
-  {
-    id: 'IKATAN',
-    label: 'Ikatan / Sayur',
-    desc: 'Ikat, gulung, sisir (pisang), ikat dapur',
-    icon: Layers,
-    color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800',
-  },
-  {
-    id: 'LAINNYA',
-    label: 'Lainnya',
-    desc: 'Satuan khusus atau non-standar lainnya',
-    icon: HelpCircle,
-    color: 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
-  },
-];
 
 export const UnitModal: React.FC<UnitModalProps> = ({
   isOpen,
@@ -87,7 +30,6 @@ export const UnitModal: React.FC<UnitModalProps> = ({
 
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
-  const [category, setCategory] = useState<UnitCategory>('ECERAN');
   const [description, setDescription] = useState('');
   const [syncProducts, setSyncProducts] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,13 +39,11 @@ export const UnitModal: React.FC<UnitModalProps> = ({
     if (unit) {
       setName(unit.name);
       setSymbol(unit.symbol);
-      setCategory(unit.category || 'ECERAN');
       setDescription(unit.description || '');
       setSyncProducts(true);
     } else {
       setName('');
       setSymbol('');
-      setCategory('ECERAN');
       setDescription('');
       setSyncProducts(true);
     }
@@ -132,7 +72,6 @@ export const UnitModal: React.FC<UnitModalProps> = ({
       await onSubmit({
         name: trimmedName,
         symbol: trimmedSymbol,
-        category,
         description: description.trim(),
         syncProducts,
       });
@@ -223,44 +162,6 @@ export const UnitModal: React.FC<UnitModalProps> = ({
               <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 block">
                 Muncul pada struk nota & keranjang kasir
               </span>
-            </div>
-          </div>
-
-          {/* Kategori Satuan */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-              Kategori Penggunaan Satuan
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {CATEGORIES.map((cat) => {
-                const Icon = cat.icon;
-                const isSelected = category === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-theme-primary bg-theme-light ring-2 ring-[var(--theme-ring)]/40 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-theme-primary' : 'text-slate-500 dark:text-slate-400'}`} />
-                        <span className={`text-xs font-bold ${isSelected ? 'text-theme-text' : 'text-slate-800 dark:text-slate-200'}`}>
-                          {cat.label}
-                        </span>
-                      </div>
-                      {isSelected && <Check className="w-3 h-3 text-theme-primary stroke-[3]" />}
-                    </div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                      {cat.desc}
-                    </span>
-                  </button>
-                );
-              })}
             </div>
           </div>
 

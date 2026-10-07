@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import {
   getTenants,
+  getTenantDeactivationRequests,
   updateTenantStatus,
+  updateTenant,
   getMyTenant,
   requestTenantDeactivation,
   cancelTenantDeactivation,
@@ -13,6 +15,8 @@ const router = Router();
 
 // Admin endpoints
 router.get('/tenants', authenticateToken, requireRole(['ADMIN']), getTenants);
+router.get('/tenants/deactivation-requests', authenticateToken, requireRole(['ADMIN']), getTenantDeactivationRequests);
+router.patch('/tenants/:id', authenticateToken, requireRole(['ADMIN']), updateTenant);
 router.patch('/tenants/:id/status', authenticateToken, requireRole(['ADMIN']), updateTenantStatus);
 router.post('/tenants/:id/evaluate-deactivation', authenticateToken, requireRole(['ADMIN']), evaluateTenantDeactivation);
 

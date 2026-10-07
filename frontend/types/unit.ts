@@ -1,11 +1,11 @@
-export type UnitCategory = 'ECERAN' | 'KEMASAN' | 'TIMBANGAN' | 'VOLUME' | 'IKATAN' | 'LAINNYA';
+export type UnitCategory = string;
 
 export interface CashierUnit {
   id: string;
   tenantId: string;
   name: string;
   symbol: string;
-  category: UnitCategory;
+  category?: string;
   description?: string;
   isDefault?: boolean;
   productCount?: number;
@@ -26,11 +26,13 @@ export interface CashierUnitDetail extends CashierUnit {
 
 export interface UnitStats {
   totalUnits: number;
-  eceranCount: number;
-  kemasanCount: number;
-  timbanganCount: number;
-  volumeCount: number;
-  ikatanCount: number;
-  lainnyaCount: number;
+  activeUnits?: number;
+  unusedUnits?: number;
   totalProductsTracked: number;
+  eceranCount?: number;
+  kemasanCount?: number;
+  timbanganCount?: number;
+  volumeCount?: number;
+  ikatanCount?: number;
+  lainnyaCount?: number;
 }

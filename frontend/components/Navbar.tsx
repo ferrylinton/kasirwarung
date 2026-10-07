@@ -17,6 +17,7 @@ import {
   Boxes,
   FolderTree,
   Scale,
+  ShieldAlert,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
@@ -53,6 +54,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     dashboard: { label: t('nav.dashboard', 'Dashboard Statistik'), icon: BarChart3 },
     cashiers: { label: t('nav.cashiers', 'Kelola Staf Kasir'), icon: Users2 },
     tenants: { label: t('nav.tenants', 'Manajemen Tenant'), icon: Building2 },
+    'tenant-requests': { label: t('nav.tenantRequests', 'Review Nonaktif Tenan'), icon: ShieldAlert },
+    'user-management': { label: t('nav.userManagement', 'Manajemen User'), icon: Users2 },
     'tenant-info': { label: t('nav.tenantInfo', 'Informasi Tenant'), icon: Store },
     'activity-log': { label: t('nav.activityLog', 'Log Aktivitas'), icon: ClipboardList },
     'login-history': { label: t('nav.loginHistory', 'Histori Login'), icon: KeyRound },

@@ -1,10 +1,19 @@
 import api from './api.ts';
-import { Tenant } from '../types/tenant.ts';
+import { Tenant, TenantDeactivationRequestItem } from '../types/tenant.ts';
 
 export const tenantService = {
   getTenants: async () => {
     const res = await api.get<{ success: boolean; count: number; tenants: Tenant[] }>('/tenants');
     return res.tenants || [];
+  },
+
+  getDeactivationRequests: async () => {
+    return api.get<{
+      success: boolean;
+      count: number;
+      pendingCount: number;
+      requests: TenantDeactivationRequestItem[];
+    }>('/tenants/deactivation-requests');
   },
 
   updateTenantStatus: async (tenantId: string, status: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE') => {

@@ -1,6 +1,6 @@
 import { Role } from './user.ts';
 
-export type ActivityModule = 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT';
+export type ActivityModule = 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT' | 'USER';
 
 export type ActivityAction =
   | 'CREATE_PRODUCT'
@@ -11,11 +11,21 @@ export type ActivityAction =
   | 'DELETE_CATEGORY'
   | 'CREATE_CASHIER'
   | 'DELETE_CASHIER'
+  | 'UPDATE_TENANT'
+  | 'UPDATE_TENANT_STATUS'
+  | 'REQUEST_DEACTIVATION'
+  | 'CANCEL_DEACTIVATION_REQUEST'
+  | 'APPROVE_DEACTIVATION'
+  | 'REJECT_DEACTIVATION'
+  | 'ACTIVATE_USER'
+  | 'DEACTIVATE_USER'
+  | 'ADMIN_CHANGE_PASSWORD'
   | string;
 
 export interface ActivityLog {
   id: string;
   tenantId: string;
+  tenantName?: string;
   userId: string;
   userName: string;
   userRole: Role;

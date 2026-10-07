@@ -6,7 +6,7 @@ export async function recordActivityLog(params: {
   userId: string;
   userName: string;
   userRole: string;
-  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT';
+  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT' | 'USER';
   action: string;
   description: string;
   details?: Record<string, any>;

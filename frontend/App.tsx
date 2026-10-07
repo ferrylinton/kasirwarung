@@ -23,7 +23,9 @@ import {
   ActivityLogPage,
   LoginHistoryPage,
   TenantManagementPage,
+  TenantDeactivationReviewPage,
   TenantInfoPage,
+  UserManagementPage,
   ConfigurationPage,
   UserProfilePage,
   LoginPage,
@@ -300,6 +302,10 @@ export default function App() {
       {currentTab === 'login-history' && <LoginHistoryPage />}
 
       {currentTab === 'tenants' && <TenantManagementPage />}
+
+      {currentTab === 'tenant-requests' && <TenantDeactivationReviewPage />}
+
+      {currentTab === 'user-management' && <UserManagementPage />}
 
       {currentTab === 'tenant-info' && <TenantInfoPage />}
 

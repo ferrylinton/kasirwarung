@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/env.ts';
 import { tokenStore } from '../tokenStore.ts';
-import { tenantsCol } from '../config/db.ts';
+import { tenantsCol, usersCol } from '../config/db.ts';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -39,6 +39,19 @@ export async function authenticateToken(req: any, res: any, next: NextFunction) 
     if (decoded.exp) {
       const nowSec = Math.floor(Date.now() / 1000);
       req.tokenRemainingSeconds = Math.max(0, decoded.exp - nowSec);
+    }
+
+    // Verify user account is still active in MongoDB
+    if (decoded.id) {
+      const userDoc = await usersCol.findOne({ id: decoded.id });
+      if (userDoc && userDoc.isActive === false) {
+        return res.status(403).json({
+          success: false,
+          userDeactivated: true,
+          code: 'USER_DEACTIVATED',
+          message: 'Akun Anda telah dinonaktifkan oleh Administrator. Hubungi administrator sistem.',
+        });
+      }
     }
 
     // Verify tenant is still active in MongoDB for tenant-bound roles

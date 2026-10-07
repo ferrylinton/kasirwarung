@@ -20,6 +20,7 @@ import {
   KeyRound,
   SlidersHorizontal,
   Scale,
+  ShieldAlert,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
@@ -37,6 +38,8 @@ export type NavTab =
   | 'dashboard'
   | 'cashiers'
   | 'tenants'
+  | 'tenant-requests'
+  | 'user-management'
   | 'tenant-info'
   | 'activity-log'
   | 'login-history'
@@ -205,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'activity-log' as NavTab,
           label: t('nav.activityLog', 'Log Aktivitas'),
           icon: ClipboardList,
-          roles: ['MANAGER'],
+          roles: ['ADMIN', 'MANAGER'],
         },
         {
           id: 'login-history' as NavTab,
@@ -229,6 +232,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'tenants' as NavTab,
           label: t('nav.tenants', 'Manajemen Tenant'),
           icon: Building2,
+          roles: ['ADMIN'],
+        },
+        {
+          id: 'tenant-requests' as NavTab,
+          label: t('nav.tenantRequests', 'Review Nonaktif Tenan'),
+          icon: ShieldAlert,
+          roles: ['ADMIN'],
+        },
+        {
+          id: 'user-management' as NavTab,
+          label: t('nav.userManagement', 'Manajemen User'),
+          icon: Users2,
           roles: ['ADMIN'],
         },
       ],

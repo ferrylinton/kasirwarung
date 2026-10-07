@@ -35,6 +35,15 @@ export async function seedMongoData() {
     phone: '0877-9876-5432',
     status: 'ACTIVE',
     createdAt: new Date().toISOString(),
+    deactivationRequest: {
+      id: 'deact-req-madura-01',
+      requestedBy: 'Cak Holil (Owner)',
+      requestedByEmail: 'cak.holil@madura24.com',
+      requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+      reason: 'Renovasi gedung ruko toko dan restrukturisasi pembukuan kasir keluarga.',
+      notes: 'Mohon persetujuan penonaktifan sementara akun warung agar tidak ada pesanan baru masuk selama periode renovasi.',
+      status: 'PENDING',
+    },
   };
 
   await tenantsCol.insertMany([tenant1, tenant2]);
@@ -50,6 +59,7 @@ export async function seedMongoData() {
       tenantId: null,
       tenantName: null,
       isVerified: true,
+      isActive: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -61,6 +71,7 @@ export async function seedMongoData() {
       tenantId: tenant1.id,
       tenantName: tenant1.name,
       isVerified: true,
+      isActive: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -72,6 +83,7 @@ export async function seedMongoData() {
       tenantId: tenant1.id,
       tenantName: tenant1.name,
       isVerified: true,
+      isActive: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -83,6 +95,7 @@ export async function seedMongoData() {
       tenantId: tenant2.id,
       tenantName: tenant2.name,
       isVerified: true,
+      isActive: true,
       createdAt: new Date().toISOString(),
     },
   ];

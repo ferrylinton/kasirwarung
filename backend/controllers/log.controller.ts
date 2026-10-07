@@ -1,20 +1,23 @@
 import { Response } from 'express';
-import { activityLogsCol, loginHistoryCol } from '../config/db.ts';
+import { activityLogsCol, loginHistoryCol, tenantsCol } from '../config/db.ts';
 
 // 1. Activity Logs: List, Search, Date Range Filter & Pagination (MANAGER & ADMIN only)
 export async function getActivityLogs(req: any, res: Response) {
   try {
-    const tenantId = req.query.tenantId || req.user.tenantId;
-    if (!tenantId && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Tenant ID diperlukan' });
-    }
-
+    const rawTenantId = req.query.tenantId;
     const query: any = {};
-    if (req.user.role !== 'ADMIN' || tenantId) {
-      query.tenantId = tenantId;
+
+    if (req.user.role !== 'ADMIN') {
+      // Manager is strictly restricted to their own tenant
+      query.tenantId = req.user.tenantId;
+    } else {
+      // ADMIN: can view all tenants, or a specific tenant, or global system logs
+      if (rawTenantId && rawTenantId !== 'ALL' && rawTenantId !== 'SEMUA') {
+        query.tenantId = rawTenantId;
+      }
     }
 
-    // Filter by module (PRODUCT, CATEGORY, CASHIER)
+    // Filter by module (PRODUCT, CATEGORY, CASHIER, TENANT, USER)
     const moduleParam = (req.query.module as string || '').trim().toUpperCase();
     if (moduleParam && moduleParam !== 'ALL' && moduleParam !== 'SEMUA') {
       query.module = moduleParam;
@@ -33,6 +36,9 @@ export async function getActivityLogs(req: any, res: Response) {
         { description: { $regex: q, $options: 'i' } },
         { userName: { $regex: q, $options: 'i' } },
         { action: { $regex: q, $options: 'i' } },
+        { 'details.targetEmail': { $regex: q, $options: 'i' } },
+        { 'details.targetTenantName': { $regex: q, $options: 'i' } },
+        { 'details.tenantName': { $regex: q, $options: 'i' } },
       ];
     }
 
@@ -73,13 +79,32 @@ export async function getActivityLogs(req: any, res: Response) {
       .limit(limit)
       .toArray();
 
+    // Enrich logs with resolved tenantName
+    const tenants = await tenantsCol.find().project({ id: 1, name: 1 }).toArray();
+    const tenantMap = new Map(tenants.map((t: any) => [t.id, t.name]));
+
+    const enrichedLogs = logs.map((l: any) => {
+      let resolvedTenantName = l.tenantName;
+      if (!resolvedTenantName) {
+        if (l.tenantId === 'SYSTEM' || !l.tenantId) {
+          resolvedTenantName = 'Sistem Global (Admin)';
+        } else {
+          resolvedTenantName = tenantMap.get(l.tenantId) || l.tenantId;
+        }
+      }
+      return {
+        ...l,
+        tenantName: resolvedTenantName,
+      };
+    });
+
     res.json({
       success: true,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
-      logs,
+      logs: enrichedLogs,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Gagal mengambil data log aktivitas: ' + err.message });

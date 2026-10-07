@@ -1,14 +1,14 @@
 export type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';
 export type TenantStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'INACTIVE';
 export type PaymentMethod = 'TUNAI' | 'QRIS' | 'TRANSFER' | 'KASBON';
-export type UnitCategory = 'ECERAN' | 'KEMASAN' | 'TIMBANGAN' | 'VOLUME' | 'IKATAN' | 'LAINNYA';
+export type UnitCategory = string;
 
 export interface UnitDoc {
   id: string;
   tenantId: string;
   name: string;
   symbol: string;
-  category: UnitCategory;
+  category?: string;
   description?: string;
   isDefault?: boolean;
   createdAt: string;
@@ -45,10 +45,12 @@ export interface UserDoc {
   name: string;
   email: string;
   password?: string;
+  passwordHash?: string;
   role: Role;
   tenantId: string | null;
   tenantName: string | null;
   isVerified: boolean;
+  isActive?: boolean;
   phone?: string;
   verificationToken?: string;
   verificationTokenExpires?: string;
@@ -116,7 +118,7 @@ export interface ActivityLogDoc {
   userId: string;
   userName: string;
   userRole: string;
-  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT';
+  module: 'PRODUCT' | 'CATEGORY' | 'CASHIER' | 'TENANT' | 'USER';
   action: string;
   description: string;
   details?: Record<string, any>;

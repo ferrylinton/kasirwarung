@@ -313,6 +313,27 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ success: false, message: 'Email atau kata sandi salah' });
     }
 
+    // Check individual user account status in MongoDB
+    if (user.isActive === false) {
+      await recordLoginHistory({
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        tenantId: user.tenantId,
+        tenantName: user.tenantName,
+        status: 'FAILED',
+        failureReason: 'Akun dinonaktifkan oleh Administrator',
+        ipAddress: clientIp,
+        userAgent: clientUa,
+      });
+      return res.status(403).json({
+        success: false,
+        userDeactivated: true,
+        message: 'Akun Anda telah dinonaktifkan oleh Administrator. Silakan hubungi admin sistem.',
+      });
+    }
+
     // Check tenant status in MongoDB
     if (user.tenantId) {
       const tenant = await tenantsCol.findOne({ id: user.tenantId });

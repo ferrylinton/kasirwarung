@@ -27,3 +27,18 @@ export interface Tenant {
   deactivationRequest?: TenantDeactivationRequest | null;
   createdAt: string;
 }
+
+export interface TenantDeactivationRequestItem {
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  tenantAddress: string;
+  tenantPhone: string;
+  tenantStatus: TenantStatus;
+  productCount: number;
+  userCount: number;
+  orderCount: number;
+  totalRevenue: number;
+  request: TenantDeactivationRequest;
+}
+

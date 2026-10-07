@@ -40,18 +40,79 @@ export async function updateTenantStatus(req: Request, res: Response) {
 
     const { status } = req.body;
     if (status && ['ACTIVE', 'SUSPENDED', 'INACTIVE'].includes(status)) {
+      const oldStatus = tenant.status;
       const updateDoc: any = { status };
       if (status === 'ACTIVE' && tenant.deactivationRequest?.status === 'APPROVED') {
         updateDoc.deactivationRequest = null;
       }
       await tenantsCol.updateOne({ id: req.params.id }, { $set: updateDoc });
       tenant.status = status;
+
+      await recordActivityLog({
+        tenantId: tenant.id,
+        userId: (req as any).user?.id || 'admin',
+        userName: (req as any).user?.name || 'Administrator',
+        userRole: (req as any).user?.role || 'ADMIN',
+        module: 'TENANT',
+        action: 'UPDATE_TENANT_STATUS',
+        description: `Admin ${(req as any).user?.name || 'Admin'} mengubah status tenant "${tenant.name}" dari ${oldStatus} menjadi ${status}`,
+        details: {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          oldStatus,
+          newStatus: status,
+        },
+        ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+      });
     }
 
     res.json({
       success: true,
       message: `Status tenant "${tenant.name}" berhasil diubah menjadi ${tenant.status}!`,
       tenant,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// Update tenant profile information (ADMIN only)
+export async function updateTenant(req: Request, res: Response) {
+  try {
+    const tenant = await tenantsCol.findOne({ id: req.params.id });
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan' });
+    }
+
+    const { name, address, phone } = req.body;
+    const updateDoc: any = {};
+    if (name) updateDoc.name = name.trim();
+    if (address !== undefined) updateDoc.address = address.trim();
+    if (phone !== undefined) updateDoc.phone = phone.trim();
+    updateDoc.updatedAt = new Date().toISOString();
+
+    await tenantsCol.updateOne({ id: req.params.id }, { $set: updateDoc });
+
+    await recordActivityLog({
+      tenantId: tenant.id,
+      userId: (req as any).user?.id || 'admin',
+      userName: (req as any).user?.name || 'Administrator',
+      userRole: (req as any).user?.role || 'ADMIN',
+      module: 'TENANT',
+      action: 'UPDATE_TENANT',
+      description: `Admin ${(req as any).user?.name || 'Admin'} memperbarui profil data tenant "${updateDoc.name || tenant.name}"`,
+      details: {
+        tenantId: tenant.id,
+        previousData: { name: tenant.name, address: tenant.address, phone: tenant.phone },
+        updatedData: updateDoc,
+      },
+      ipAddress: req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1',
+    });
+
+    res.json({
+      success: true,
+      message: `Data tenant "${updateDoc.name || tenant.name}" berhasil diperbarui!`,
+      tenant: { ...tenant, ...updateDoc },
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -314,3 +375,55 @@ export async function evaluateTenantDeactivation(req: any, res: Response) {
     res.status(500).json({ success: false, message: err.message });
   }
 }
+
+// 7. Get all tenant deactivation requests with tenant details and statistics (ADMIN only)
+export async function getTenantDeactivationRequests(req: Request, res: Response) {
+  try {
+    const tenantsWithRequests = await tenantsCol
+      .find({ deactivationRequest: { $ne: null } })
+      .toArray();
+
+    const requests = await Promise.all(
+      tenantsWithRequests.map(async (t: any) => {
+        const productCount = await productsCol.countDocuments({ tenantId: t.id });
+        const userCount = await usersCol.countDocuments({ tenantId: t.id });
+        const orderCount = await ordersCol.countDocuments({ tenantId: t.id });
+        const orders = await ordersCol.find({ tenantId: t.id }).toArray();
+        const totalRevenue = orders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+
+        return {
+          tenantId: t.id,
+          tenantName: t.name,
+          tenantSlug: t.slug,
+          tenantAddress: t.address || '-',
+          tenantPhone: t.phone || '-',
+          tenantStatus: t.status,
+          productCount,
+          userCount,
+          orderCount,
+          totalRevenue,
+          request: t.deactivationRequest,
+        };
+      })
+    );
+
+    // Sort by requestedAt descending
+    requests.sort((a, b) => {
+      const timeA = new Date(a.request?.requestedAt || 0).getTime();
+      const timeB = new Date(b.request?.requestedAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    const pendingCount = requests.filter((r) => r.request?.status === 'PENDING').length;
+
+    res.json({
+      success: true,
+      count: requests.length,
+      pendingCount,
+      requests,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: 'Gagal memuat permohonan penonaktifan: ' + err.message });
+  }
+}
+
