@@ -1,14 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import DatePicker from 'react-date-picker';
-import 'react-date-picker/dist/DatePicker.css';
-import 'react-calendar/dist/Calendar.css';
 import { id as idLocale, enUS as enLocale } from 'date-fns/locale';
 import { format as formatFns } from 'date-fns';
 import {
   ClipboardList,
   Search,
-  Calendar as CalendarIcon,
   RotateCcw,
   Boxes,
   FolderTree,
@@ -28,11 +24,9 @@ import {
   Globe,
   SlidersHorizontal,
 } from 'lucide-react';
+import { DatePicker, DatePickerValue } from '../Common/DatePicker';
 import { ActivityLog, ActivityModule, ActivityLogResponse } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
-
-type ValuePiece = Date | null;
-type DatePickerValue = ValuePiece | [ValuePiece, ValuePiece];
 
 export const ActivityLogView: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -40,7 +34,6 @@ export const ActivityLogView: React.FC = () => {
 
   const isEn = i18n.language === 'en';
   const dateFnsLocale = isEn ? enLocale : idLocale;
-  const datePickerLocale = dateFnsLocale.code || (isEn ? 'en-US' : 'id-ID');
 
   // State
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -262,82 +255,26 @@ export const ActivityLogView: React.FC = () => {
 
           {/* Tanggal Awal Date Picker */}
           <div className="sm:col-span-1 lg:col-span-3">
-            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-              {t('activityLog.startDate', 'Tanggal Awal')}
-            </span>
-            <div
-              className="w-full"
-              onClick={(e) => {
-                const target = e.target as HTMLElement;
-                if (target?.classList?.contains('react-date-picker__inputGroup__leadingZero')) {
-                  const nextInput = target.nextElementSibling as HTMLInputElement;
-                  if (nextInput && typeof nextInput.focus === 'function') {
-                    nextInput.focus();
-                  }
-                }
-              }}
-            >
-              <DatePicker
-                onChange={handleStartDateChange}
-                value={startDate}
-                maxDate={endDate instanceof Date ? endDate : undefined}
-                locale={datePickerLocale}
-                showLeadingZeros={true}
-                format={isEn ? 'MM/dd/yyyy' : 'dd/MM/yyyy'}
-                clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />}
-                calendarIcon={<CalendarIcon className="w-4 h-4 text-slate-500" />}
-                dayPlaceholder="dd"
-                monthPlaceholder="mm"
-                yearPlaceholder="yyyy"
-                dayAriaLabel={t('activityLog.dayAriaLabel', isEn ? 'Day' : 'Hari')}
-                monthAriaLabel={t('activityLog.monthAriaLabel', isEn ? 'Month' : 'Bulan')}
-                nativeInputAriaLabel={t('activityLog.startDate', 'Tanggal Awal')}
-                yearAriaLabel={t('activityLog.yearAriaLabel', isEn ? 'Year' : 'Tahun')}
-                clearAriaLabel={t('activityLog.clearStartDateAriaLabel', isEn ? 'Clear start date' : 'Hapus tanggal awal')}
-                calendarAriaLabel={t('activityLog.calendarAriaLabel', isEn ? 'Toggle calendar' : 'Buka kalender')}
-                className="w-full text-sm"
-              />
-            </div>
+            <DatePicker
+              label={t('activityLog.startDate', 'Tanggal Awal')}
+              value={startDate}
+              onChange={handleStartDateChange}
+              maxDate={endDate instanceof Date ? endDate : undefined}
+              nativeInputAriaLabel={t('activityLog.startDate', 'Tanggal Awal')}
+              clearAriaLabel={t('activityLog.clearStartDateAriaLabel', isEn ? 'Clear start date' : 'Hapus tanggal awal')}
+            />
           </div>
 
           {/* Tanggal Akhir Date Picker */}
           <div className="sm:col-span-1 lg:col-span-3">
-            <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-              {t('activityLog.endDate', 'Tanggal Akhir')}
-            </span>
-            <div
-              className="w-full"
-              onClick={(e) => {
-                const target = e.target as HTMLElement;
-                if (target?.classList?.contains('react-date-picker__inputGroup__leadingZero')) {
-                  const nextInput = target.nextElementSibling as HTMLInputElement;
-                  if (nextInput && typeof nextInput.focus === 'function') {
-                    nextInput.focus();
-                  }
-                }
-              }}
-            >
-              <DatePicker
-                onChange={handleEndDateChange}
-                value={endDate}
-                minDate={startDate instanceof Date ? startDate : undefined}
-                locale={datePickerLocale}
-                showLeadingZeros={true}
-                format={isEn ? 'MM/dd/yyyy' : 'dd/MM/yyyy'}
-                clearIcon={<X className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />}
-                calendarIcon={<CalendarIcon className="w-4 h-4 text-slate-500" />}
-                dayPlaceholder="dd"
-                monthPlaceholder="mm"
-                yearPlaceholder="yyyy"
-                dayAriaLabel={t('activityLog.dayAriaLabel', isEn ? 'Day' : 'Hari')}
-                monthAriaLabel={t('activityLog.monthAriaLabel', isEn ? 'Month' : 'Bulan')}
-                nativeInputAriaLabel={t('activityLog.endDate', 'Tanggal Akhir')}
-                yearAriaLabel={t('activityLog.yearAriaLabel', isEn ? 'Year' : 'Tahun')}
-                clearAriaLabel={t('activityLog.clearEndDateAriaLabel', isEn ? 'Clear end date' : 'Hapus tanggal akhir')}
-                calendarAriaLabel={t('activityLog.calendarAriaLabel', isEn ? 'Toggle calendar' : 'Buka kalender')}
-                className="w-full text-sm"
-              />
-            </div>
+            <DatePicker
+              label={t('activityLog.endDate', 'Tanggal Akhir')}
+              value={endDate}
+              onChange={handleEndDateChange}
+              minDate={startDate instanceof Date ? startDate : undefined}
+              nativeInputAriaLabel={t('activityLog.endDate', 'Tanggal Akhir')}
+              clearAriaLabel={t('activityLog.clearEndDateAriaLabel', isEn ? 'Clear end date' : 'Hapus tanggal akhir')}
+            />
           </div>
 
           {/* Quick Clear / Reset Filters */}

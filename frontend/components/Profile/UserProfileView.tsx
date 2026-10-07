@@ -2,28 +2,20 @@ import React, { useState } from 'react';
 import { z } from 'zod';
 import {
   User as UserIcon,
-  Shield,
   KeyRound,
   Lock,
   Eye,
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  Building2,
-  Mail,
   Phone,
-  Clock,
-  Sparkles,
-  ShieldCheck,
   ShieldAlert,
   Save,
   Check,
-  Palette,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
-import { ThemeCustomizerPanel } from '../Theme/ThemeToggle';
 
 // Client-side Zod validation schemas
 const ChangePasswordFormSchema = z
@@ -51,11 +43,11 @@ type ProfileFormData = z.infer<typeof ProfileUpdateFormSchema>;
 
 export const UserProfileView: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { user, tenant, token, tokenMeta, updateUser } = useAuthStore();
+  const { user, tenant, token, updateUser } = useAuthStore();
   const { addToast } = useToastStore();
 
   // Active view tab inside profile
-  const [activeTab, setActiveTab] = useState<'password' | 'info' | 'theme'>('password');
+  const [activeTab, setActiveTab] = useState<'password' | 'info'>('password');
 
   // Change Password State
   const [passwordData, setPasswordData] = useState<PasswordFormData>({
@@ -234,111 +226,38 @@ export const UserProfileView: React.FC = () => {
     }
   };
 
-  const getRoleBadge = (role?: string) => {
-    switch (role) {
-      case 'ADMIN':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">
-            <Shield className="w-3 h-3" />
-            {t('nav.roles.admin', 'Admin Global')}
-          </span>
-        );
-      case 'MANAGER':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            <ShieldCheck className="w-3 h-3" />
-            {t('nav.roles.manager', 'Manajer Toko')}
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
-            <UserIcon className="w-3 h-3" />
-            {t('nav.roles.cashier', 'Kasir Utama')}
-          </span>
-        );
-    }
-  };
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-linear-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-white flex items-center justify-center font-bold text-2xl shadow-md shadow-emerald-100 shrink-0">
-            {user?.name ? user.name.slice(0, 2).toUpperCase() : <UserIcon className="w-8 h-8" />}
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
-                {user?.name || 'Pengguna KasirWarung'}
-              </h1>
-              {getRoleBadge(user?.role)}
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-              <span className="flex items-center gap-1">
-                <Mail className="w-3.5 h-3.5 text-slate-400" />
-                {user?.email}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                {tenant?.name || user?.tenantName || 'Berkah Jaya'}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {t('profile.verified', 'Email Terverifikasi')}
-              </span>
-            </p>
-          </div>
-        </div>
-
-        {/* Tab Switcher Buttons */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl w-full md:w-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('password')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'password'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>{t('profile.securityTab', 'Ubah Kata Sandi')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('info')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'info'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <UserIcon className="w-3.5 h-3.5" />
-            <span>{t('profile.personalInfoTab', 'Informasi Akun')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('theme')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'theme'
-                ? 'btn-theme-primary shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span>{t('theme.title', 'Tema & Tampilan')}</span>
-          </button>
-        </div>
+      {/* Tab Switcher Buttons */}
+      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex">
+        <button
+          type="button"
+          onClick={() => setActiveTab('password')}
+          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'password'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <KeyRound className="w-3.5 h-3.5" />
+          <span>{t('profile.securityTab', 'Ubah Kata Sandi')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('info')}
+          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'info'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+          }`}
+        >
+          <UserIcon className="w-3.5 h-3.5" />
+          <span>{t('profile.personalInfoTab', 'Informasi Akun')}</span>
+        </button>
       </div>
 
-      {/* Main Grid: Left is Form, Right is Info & Security Checklist */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Forms */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Forms Container */}
+      <div className="space-y-6">
           {/* TAB 1: UBAH KATA SANDI (Change Password Feature with Zod Validation) */}
           {activeTab === 'password' && (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
@@ -720,78 +639,6 @@ export const UserProfileView: React.FC = () => {
               </form>
             </div>
           )}
-
-          {/* TAB 3: TEMA & TAMPILAN (10 Accent Theme Colors & Dark Mode) */}
-          {activeTab === 'theme' && (
-            <ThemeCustomizerPanel />
-          )}
-        </div>
-
-        {/* Right 1 Column: Security Overview, Account Tips, Session Meta */}
-        <div className="space-y-6">
-          {/* Security Overview Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              {t('profile.securityAdvice', 'Tips Keamanan Akun')}
-            </h3>
-
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-xl">
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>{t('profile.securityTip1', 'Jangan bagikan kata sandi akun Anda kepada siapapun.')}</span>
-              </div>
-              <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-xl">
-                <Lock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>
-                  {t(
-                    'profile.securityTip2',
-                    'Gunakan kombinasi huruf, angka, dan simbol untuk keamanan maksimal.'
-                  )}
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-xl">
-                <Clock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <span>
-                  {t(
-                    'profile.securityTip3',
-                    'Selalu lakukan Logout bila selesai bertugas di kasir bersama.'
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Session Diagnostics Info */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4 text-teal-600" />
-              {t('profile.sessionInfo', 'Status Sesi Akun')}
-            </h3>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Auto Idle Logout</span>
-                <span className="font-semibold text-slate-800">
-                  {tokenMeta?.idleTimeoutMinutes || 5} Menit
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Online Cloud Sync</span>
-                <span className="inline-flex items-center gap-1.5 text-emerald-600 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Aktif
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-slate-500">Keamanan Token</span>
-                <span className="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 text-[11px]">
-                  JWT + Denylist
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
