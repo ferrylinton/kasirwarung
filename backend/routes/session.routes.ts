@@ -10,9 +10,9 @@ import { authenticateToken, requireRole } from '../middlewares/auth.ts';
 
 const router = Router();
 
-// All session management endpoints are restricted to ADMIN role only
+// Session management endpoints restricted to ADMIN and MANAGER
 router.use(authenticateToken);
-router.use(requireRole(['ADMIN']));
+router.use(requireRole(['ADMIN', 'MANAGER']));
 
 router.get('/', getActiveSessions);
 router.post('/revoke', revokeSession);
