@@ -20,7 +20,13 @@ interface CashierUser {
   createdAt: string;
 }
 
-export const CashierManagementView: React.FC = () => {
+export interface CashierManagementViewProps {
+  onNavigateToSessions?: () => void;
+}
+
+export const CashierManagementView: React.FC<CashierManagementViewProps> = ({
+  onNavigateToSessions,
+}) => {
   const { tenant, token } = useAuthStore();
   const { addToast } = useToastStore();
 
@@ -151,17 +157,30 @@ export const CashierManagementView: React.FC = () => {
           </h1>
         </div>
 
-        <button
-          onClick={() => {
-            setFormData({ name: '', email: '', password: '' });
-            setErrors({});
-            setIsModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Tambah Kasir Baru</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {onNavigateToSessions && (
+            <button
+              type="button"
+              onClick={onNavigateToSessions}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <KeyRound className="w-4 h-4 text-emerald-600" />
+              <span>Sesi & Token Aktif Warung</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setFormData({ name: '', email: '', password: '' });
+              setErrors({});
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Tambah Kasir Baru</span>
+          </button>
+        </div>
       </div>
 
       {/* Permissions Guide Card */}

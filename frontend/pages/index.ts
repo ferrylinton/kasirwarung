@@ -14,6 +14,7 @@ export * from './TenantDeactivationReviewPage.tsx';
 export * from './TenantInfoPage.tsx';
 export * from './UserManagementPage.tsx';
 export * from './ActiveSessionsPage.tsx';
+export * from './TenantActiveSessionsPage.tsx';
 export * from './ActivityLogPage.tsx';
 export * from './LoginHistoryPage.tsx';
 export * from './ConfigurationPage.tsx';
@@ -38,6 +39,7 @@ export { default as TenantDeactivationReviewPage } from './TenantDeactivationRev
 export { default as TenantInfoPage } from './TenantInfoPage.tsx';
 export { default as UserManagementPage } from './UserManagementPage.tsx';
 export { default as ActiveSessionsPage } from './ActiveSessionsPage.tsx';
+export { default as TenantActiveSessionsPage } from './TenantActiveSessionsPage.tsx';
 export { default as ActivityLogPage } from './ActivityLogPage.tsx';
 export { default as LoginHistoryPage } from './LoginHistoryPage.tsx';
 export { default as ConfigurationPage } from './ConfigurationPage.tsx';

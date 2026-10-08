@@ -10,7 +10,7 @@ export interface ActiveSessionsFilterParams {
 
 export const sessionService = {
   getActiveSessions: async (params?: ActiveSessionsFilterParams): Promise<ActiveSessionsResponse> => {
-    return await api.get<ActiveSessionsResponse>('/admin/sessions', {
+    return await api.get<ActiveSessionsResponse>('/sessions', {
       params: {
         status: params?.status,
         tenantId: params?.tenantId,
@@ -21,23 +21,28 @@ export const sessionService = {
   },
 
   revokeSession: async (sessionId: string, reason?: string): Promise<RevokeSessionResponse> => {
-    return await api.post<RevokeSessionResponse>('/admin/sessions/revoke', {
+    return await api.post<RevokeSessionResponse>('/sessions/revoke', {
       sessionId,
       reason,
     });
   },
 
   revokeUserSessions: async (userId: string, reason?: string): Promise<RevokeSessionResponse> => {
-    return await api.post<RevokeSessionResponse>('/admin/sessions/revoke-user', {
+    return await api.post<RevokeSessionResponse>('/sessions/revoke-user', {
       userId,
       reason,
     });
   },
 
-  revokeTenantSessions: async (tenantId: string, reason?: string): Promise<RevokeSessionResponse> => {
-    return await api.post<RevokeSessionResponse>('/admin/sessions/revoke-tenant', {
+  revokeTenantSessions: async (
+    tenantId: string,
+    reason?: string,
+    excludeCurrentSession: boolean = true
+  ): Promise<RevokeSessionResponse> => {
+    return await api.post<RevokeSessionResponse>('/sessions/revoke-tenant', {
       tenantId,
       reason,
+      excludeCurrentSession,
     });
   },
 

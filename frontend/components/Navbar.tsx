@@ -57,6 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     'tenant-requests': { label: t('nav.tenantRequests', 'Review Nonaktif Tenan'), icon: ShieldAlert },
     'user-management': { label: t('nav.userManagement', 'Manajemen User'), icon: Users2 },
     'active-sessions': { label: t('nav.activeSessions', 'Sesi & Token Aktif'), icon: KeyRound },
+    'tenant-sessions': { label: t('nav.tenantSessions', 'Sesi & Token Aktif Warung'), icon: KeyRound },
     'tenant-info': { label: t('nav.tenantInfo', 'Informasi Tenant'), icon: Store },
     'activity-log': { label: t('nav.activityLog', 'Log Aktivitas'), icon: ClipboardList },
     'login-history': { label: t('nav.loginHistory', 'Histori Login'), icon: KeyRound },

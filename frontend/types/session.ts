@@ -23,6 +23,7 @@ export interface ActiveSessionItem {
   revokedBy?: string;
   revokeReason?: string;
   createdAt: string;
+  isCurrentSession?: boolean;
 }
 
 export interface SessionMetrics {
@@ -35,6 +36,7 @@ export interface SessionMetrics {
 
 export interface ActiveSessionsResponse {
   success: boolean;
+  currentJti?: string | null;
   metrics: SessionMetrics;
   tenants: Array<{ id: string; name: string }>;
   sessions: ActiveSessionItem[];

@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import { tenantService } from '../services/tenantService';
+import { sessionService } from '../services/sessionService';
 
 export type NavTab =
   | 'admin-dashboard'
@@ -42,6 +43,7 @@ export type NavTab =
   | 'tenant-requests'
   | 'user-management'
   | 'active-sessions'
+  | 'tenant-sessions'
   | 'tenant-info'
   | 'activity-log'
   | 'login-history'
@@ -76,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const role = user?.role || 'CASHIER';
 
   const [pendingDeactivationCount, setPendingDeactivationCount] = useState<number>(0);
+  const [activeTenantSessionCount, setActiveTenantSessionCount] = useState<number>(0);
 
   useEffect(() => {
     if (role !== 'ADMIN') return;
@@ -94,6 +97,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     fetchPending();
     const interval = setInterval(fetchPending, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [role, currentTab]);
+
+  useEffect(() => {
+    if (role !== 'MANAGER') return;
+
+    let isMounted = true;
+    const fetchTenantSessions = async () => {
+      try {
+        const res = await sessionService.getActiveSessions({ status: 'ACTIVE' });
+        if (isMounted) {
+          setActiveTenantSessionCount(res.metrics?.totalActive || 0);
+        }
+      } catch {
+        // quiet fallback
+      }
+    };
+
+    fetchTenantSessions();
+    const interval = setInterval(fetchTenantSessions, 30000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -231,6 +257,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'audit',
       title: t('nav.groups.audit', 'Audit & Keamanan'),
       items: [
+        {
+          id: 'tenant-sessions' as NavTab,
+          label: t('nav.tenantSessions', 'Sesi & Token Aktif'),
+          icon: KeyRound,
+          badge: activeTenantSessionCount > 0 ? `${activeTenantSessionCount}` : undefined,
+          hasDot: activeTenantSessionCount > 0,
+          roles: ['MANAGER'],
+        },
         {
           id: 'activity-log' as NavTab,
           label: t('nav.activityLog', 'Log Aktivitas'),

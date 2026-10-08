@@ -27,6 +27,7 @@ import {
   TenantInfoPage,
   UserManagementPage,
   ActiveSessionsPage,
+  TenantActiveSessionsPage,
   ConfigurationPage,
   UserProfilePage,
   LoginPage,
@@ -308,7 +309,9 @@ export default function App() {
 
       {currentTab === 'dashboard' && <TenantDashboardPage />}
 
-      {currentTab === 'cashiers' && <CashierManagementPage />}
+      {currentTab === 'cashiers' && (
+        <CashierManagementPage onNavigateToSessions={() => setCurrentTab('tenant-sessions')} />
+      )}
 
       {currentTab === 'activity-log' && <ActivityLogPage />}
 
@@ -327,8 +330,22 @@ export default function App() {
       {currentTab === 'user-management' && <UserManagementPage />}
 
       {currentTab === 'active-sessions' && (
-        <ActiveSessionsPage
-          onNavigateBack={() => setCurrentTab(user?.role === 'ADMIN' ? 'admin-dashboard' : 'catalog')}
+        user?.role === 'MANAGER' ? (
+          <TenantActiveSessionsPage
+            onNavigateBack={() => setCurrentTab('catalog')}
+            onNavigateToCashiers={() => setCurrentTab('cashiers')}
+          />
+        ) : (
+          <ActiveSessionsPage
+            onNavigateBack={() => setCurrentTab(user?.role === 'ADMIN' ? 'admin-dashboard' : 'catalog')}
+          />
+        )
+      )}
+
+      {currentTab === 'tenant-sessions' && (
+        <TenantActiveSessionsPage
+          onNavigateBack={() => setCurrentTab('catalog')}
+          onNavigateToCashiers={() => setCurrentTab('cashiers')}
         />
       )}
 

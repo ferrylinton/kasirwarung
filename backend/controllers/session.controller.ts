@@ -3,7 +3,7 @@ import { activeSessionsCol, activityLogsCol } from '../config/db.ts';
 import { tokenStore } from '../tokenStore.ts';
 import { ACCESS_TOKEN_TTL_SEC } from '../config/env.ts';
 
-export async function getActiveSessions(req: Request, res: Response) {
+export async function getActiveSessions(req: any, res: Response) {
   try {
     const { status, tenantId, role, search } = req.query as {
       status?: string;
@@ -12,9 +12,20 @@ export async function getActiveSessions(req: Request, res: Response) {
       search?: string;
     };
 
-    const allSessions = await activeSessionsCol.find({}).toArray();
+    const currentUser = req.user;
+    const isManager = currentUser?.role === 'MANAGER';
+    const currentJti = currentUser?.jti || null;
 
-    // Calculate metrics
+    // For MANAGER, strictly scope sessions to their own tenant
+    const baseQuery: any = isManager ? { tenantId: currentUser.tenantId } : {};
+    const rawSessions = await activeSessionsCol.find(baseQuery).toArray();
+
+    const allSessions = rawSessions.map((s: any) => ({
+      ...s,
+      isCurrentSession: Boolean(currentJti && s.accessJti === currentJti),
+    }));
+
+    // Calculate metrics (scoped to tenant for MANAGER, global for ADMIN)
     const totalActive = allSessions.filter((s: any) => s.status === 'ACTIVE').length;
     const totalRevoked = allSessions.filter((s: any) => s.status === 'REVOKED').length;
     const uniqueUsersActive = new Set(
@@ -42,8 +53,8 @@ export async function getActiveSessions(req: Request, res: Response) {
         if (s.status !== status) return false;
       }
 
-      // Tenant filter
-      if (tenantId && tenantId !== 'ALL') {
+      // Tenant filter (for ADMIN)
+      if (!isManager && tenantId && tenantId !== 'ALL') {
         if (s.tenantId !== tenantId) return false;
       }
 
@@ -79,6 +90,7 @@ export async function getActiveSessions(req: Request, res: Response) {
 
     res.json({
       success: true,
+      currentJti,
       metrics: {
         totalActive,
         totalRevoked,
@@ -109,6 +121,14 @@ export async function revokeSession(req: any, res: Response) {
       return res.status(404).json({ success: false, message: 'Data sesi token tidak ditemukan.' });
     }
 
+    // Enforce tenant isolation for MANAGER role
+    if (req.user?.role === 'MANAGER' && session.tenantId !== req.user.tenantId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat menonaktifkan token sesi pengguna dari warung/tenant Anda sendiri.',
+      });
+    }
+
     if (session.status === 'REVOKED') {
       return res.status(400).json({ success: false, message: 'Token sesi ini sudah dalam status dinonaktifkan sebelumnya.' });
     }
@@ -131,8 +151,10 @@ export async function revokeSession(req: any, res: Response) {
     }
 
     const nowIso = new Date().toISOString();
-    const adminUser = req.user?.email || req.user?.name || 'Administrator';
-    const revokeReasonText = reason?.trim() || 'Dinonaktifkan oleh Administrator';
+    const isManager = req.user?.role === 'MANAGER';
+    const actorTitle = isManager ? 'Manajer Toko' : 'Administrator';
+    const actorUser = req.user?.email || req.user?.name || actorTitle;
+    const revokeReasonText = reason?.trim() || `Dinonaktifkan oleh ${actorTitle}`;
 
     // Update in session store
     await activeSessionsCol.updateOne(
@@ -141,7 +163,7 @@ export async function revokeSession(req: any, res: Response) {
         $set: {
           status: 'REVOKED',
           revokedAt: nowIso,
-          revokedBy: adminUser,
+          revokedBy: actorUser,
           revokeReason: revokeReasonText,
           updatedAt: nowIso,
         },
@@ -151,13 +173,14 @@ export async function revokeSession(req: any, res: Response) {
     // Audit Log
     await activityLogsCol.insertOne({
       id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      tenantId: session.tenantId || 'system',
+      tenantId: session.tenantId || req.user?.tenantId || 'system',
       userId: req.user?.id || 'admin',
-      userName: req.user?.name || 'Administrator',
+      userName: req.user?.name || actorTitle,
       userEmail: req.user?.email || 'admin@kasirwarung.com',
+      userRole: req.user?.role || 'ADMIN',
       action: 'REVOKE_USER_TOKEN',
       module: 'SECURITY',
-      description: `Admin menonaktifkan token sesi aktif pengguna "${session.userName}" (${session.userEmail}) di warung "${session.tenantName || 'Semua Warung'}". Alasan: ${revokeReasonText}`,
+      description: `${actorTitle} menonaktifkan token sesi aktif pengguna "${session.userName}" (${session.userEmail}) di warung "${session.tenantName || 'Semua Warung'}". Alasan: ${revokeReasonText}`,
       metadata: {
         targetUserId: session.userId,
         targetEmail: session.userEmail,
@@ -186,14 +209,21 @@ export async function revokeUserSessions(req: any, res: Response) {
       return res.status(400).json({ success: false, message: 'ID pengguna wajib disertakan.' });
     }
 
-    const activeSessions = await activeSessionsCol.find({ userId, status: 'ACTIVE' }).toArray();
+    const isManager = req.user?.role === 'MANAGER';
+    const sessionQuery: any = { userId, status: 'ACTIVE' };
+    if (isManager) {
+      sessionQuery.tenantId = req.user.tenantId;
+    }
+
+    const activeSessions = await activeSessionsCol.find(sessionQuery).toArray();
     if (activeSessions.length === 0) {
       return res.status(404).json({ success: false, message: 'Tidak ada token sesi aktif yang ditemukan untuk pengguna ini.' });
     }
 
     const nowIso = new Date().toISOString();
-    const adminUser = req.user?.email || req.user?.name || 'Administrator';
-    const revokeReasonText = reason?.trim() || 'Seluruh sesi dinonaktifkan oleh Administrator';
+    const actorTitle = isManager ? 'Manajer Toko' : 'Administrator';
+    const actorUser = req.user?.email || req.user?.name || actorTitle;
+    const revokeReasonText = reason?.trim() || `Seluruh sesi dinonaktifkan oleh ${actorTitle}`;
 
     for (const sess of activeSessions) {
       if (sess.accessJti) {
@@ -205,7 +235,7 @@ export async function revokeUserSessions(req: any, res: Response) {
           $set: {
             status: 'REVOKED',
             revokedAt: nowIso,
-            revokedBy: adminUser,
+            revokedBy: actorUser,
             revokeReason: revokeReasonText,
             updatedAt: nowIso,
           },
@@ -218,13 +248,14 @@ export async function revokeUserSessions(req: any, res: Response) {
     const userName = activeSessions[0]?.userName || userId;
     await activityLogsCol.insertOne({
       id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      tenantId: activeSessions[0]?.tenantId || 'system',
+      tenantId: activeSessions[0]?.tenantId || req.user?.tenantId || 'system',
       userId: req.user?.id || 'admin',
-      userName: req.user?.name || 'Administrator',
+      userName: req.user?.name || actorTitle,
       userEmail: req.user?.email || 'admin@kasirwarung.com',
+      userRole: req.user?.role || 'ADMIN',
       action: 'REVOKE_ALL_USER_TOKENS',
       module: 'SECURITY',
-      description: `Admin menonaktifkan seluruh ${activeSessions.length} token sesi aktif untuk pengguna "${userName}". Alasan: ${revokeReasonText}`,
+      description: `${actorTitle} menonaktifkan seluruh ${activeSessions.length} token sesi aktif untuk pengguna "${userName}". Alasan: ${revokeReasonText}`,
       createdAt: nowIso,
     });
 
@@ -240,21 +271,48 @@ export async function revokeUserSessions(req: any, res: Response) {
 
 export async function revokeTenantSessions(req: any, res: Response) {
   try {
-    const { tenantId, reason } = req.body;
-    if (!tenantId) {
+    const { tenantId, reason, excludeCurrentSession = true } = req.body;
+    const isManager = req.user?.role === 'MANAGER';
+    const targetTenantId = isManager ? req.user.tenantId : tenantId;
+
+    if (!targetTenantId) {
       return res.status(400).json({ success: false, message: 'ID tenant warung wajib disertakan.' });
     }
 
-    const activeSessions = await activeSessionsCol.find({ tenantId, status: 'ACTIVE' }).toArray();
+    if (isManager && tenantId && tenantId !== req.user.tenantId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat menonaktifkan sesi dari warung/tenant Anda sendiri.',
+      });
+    }
+
+    const activeSessions = await activeSessionsCol.find({ tenantId: targetTenantId, status: 'ACTIVE' }).toArray();
     if (activeSessions.length === 0) {
-      return res.status(404).json({ success: false, message: 'Tidak ada token sesi aktif yang ditemukan untuk tenant ini.' });
+      return res.status(404).json({ success: false, message: 'Tidak ada token sesi aktif yang ditemukan untuk warung ini.' });
+    }
+
+    const currentJti = req.user?.jti;
+    const toRevoke = activeSessions.filter((s: any) => {
+      if (excludeCurrentSession && currentJti && s.accessJti === currentJti) {
+        return false;
+      }
+      return true;
+    });
+
+    if (toRevoke.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Tidak ada token sesi staf lain yang aktif untuk dinonaktifkan (sesi Anda saat ini tetap dipertahankan).',
+        revokedCount: 0,
+      });
     }
 
     const nowIso = new Date().toISOString();
-    const adminUser = req.user?.email || req.user?.name || 'Administrator';
-    const revokeReasonText = reason?.trim() || `Seluruh sesi tenant ${tenantId} dinonaktifkan oleh Administrator`;
+    const actorTitle = isManager ? 'Manajer Toko' : 'Administrator';
+    const actorUser = req.user?.email || req.user?.name || actorTitle;
+    const revokeReasonText = reason?.trim() || `Seluruh sesi aktif warung dinonaktifkan oleh ${actorTitle}`;
 
-    for (const sess of activeSessions) {
+    for (const sess of toRevoke) {
       if (sess.accessJti) {
         await tokenStore.addToDenylist(sess.accessJti, ACCESS_TOKEN_TTL_SEC);
       }
@@ -267,7 +325,7 @@ export async function revokeTenantSessions(req: any, res: Response) {
           $set: {
             status: 'REVOKED',
             revokedAt: nowIso,
-            revokedBy: adminUser,
+            revokedBy: actorUser,
             revokeReason: revokeReasonText,
             updatedAt: nowIso,
           },
@@ -275,23 +333,24 @@ export async function revokeTenantSessions(req: any, res: Response) {
       );
     }
 
-    const tenantName = activeSessions[0]?.tenantName || tenantId;
+    const tenantName = activeSessions[0]?.tenantName || targetTenantId;
     await activityLogsCol.insertOne({
       id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      tenantId,
+      tenantId: targetTenantId,
       userId: req.user?.id || 'admin',
-      userName: req.user?.name || 'Administrator',
+      userName: req.user?.name || actorTitle,
       userEmail: req.user?.email || 'admin@kasirwarung.com',
+      userRole: req.user?.role || 'ADMIN',
       action: 'REVOKE_TENANT_TOKENS',
       module: 'SECURITY',
-      description: `Admin menonaktifkan seluruh ${activeSessions.length} token sesi aktif pada warung "${tenantName}". Alasan: ${revokeReasonText}`,
+      description: `${actorTitle} menonaktifkan ${toRevoke.length} token sesi aktif pada warung "${tenantName}". Alasan: ${revokeReasonText}`,
       createdAt: nowIso,
     });
 
     res.json({
       success: true,
-      message: `Berhasil menonaktifkan ${activeSessions.length} token sesi aktif untuk warung "${tenantName}".`,
-      revokedCount: activeSessions.length,
+      message: `Berhasil menonaktifkan ${toRevoke.length} token sesi aktif untuk warung "${tenantName}".${excludeCurrentSession ? ' Sesi Anda saat ini tetap aman.' : ''}`,
+      revokedCount: toRevoke.length,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Gagal menonaktifkan sesi tenant: ' + err.message });
