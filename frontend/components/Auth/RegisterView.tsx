@@ -8,7 +8,7 @@ import { ThemeToggle } from '../Theme/ThemeToggle';
 
 interface RegisterViewProps {
   onSwitchToLogin: () => void;
-  onRegisteredSuccess: (email: string, token: string) => void;
+  onRegisteredSuccess: (email: string) => void;
 }
 
 export const RegisterView: React.FC<RegisterViewProps> = ({
@@ -70,6 +70,16 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
         throw new Error(data.message || t('auth.registerFailedDefault', 'Pendaftaran gagal'));
       }
 
+      const registeredEmail = formData.email;
+
+      setFormData({
+        tenantName: '',
+        name: '',
+        email: '',
+        password: '',
+      });
+      setErrors({});
+
       addToast({
         type: 'success',
         title: t('auth.registerSuccessTitle', 'Pendaftaran Berhasil!'),
@@ -77,7 +87,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
         duration: 5000,
       });
 
-      onRegisteredSuccess(formData.email, data.verificationToken);
+      onRegisteredSuccess(registeredEmail);
     } catch (err: any) {
       addToast({
         type: 'error',

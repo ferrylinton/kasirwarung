@@ -27,7 +27,8 @@ export const authService = {
     return api.post<{
       success: boolean;
       message: string;
-      verificationToken?: string;
+      emailSent?: boolean;
+      user?: User;
     }>('/auth/register', payload, { skipAuth: true });
   },
 

@@ -27,13 +27,17 @@ export let unitsCol: any = new MemoryCollection('units');
 export let activeSessionsCol: any = new MemoryCollection('active_sessions');
 
 export async function connectDB() {
+  // Always ensure in-memory fallback collections are seeded immediately so server can respond right away
+  const memCount = await tenantsCol.countDocuments().catch(() => 0);
+  if (memCount === 0) {
+    await seedMongoData().catch(() => {});
+    await seedInitialUnits('tenant-berkah-jaya').catch(() => {});
+    await seedInitialUnits('tenant-madura-24jam').catch(() => {});
+    await seedInitialActiveSessions().catch(() => {});
+  }
+
   if (!MONGODB_URI) {
     console.log('🛡️ No MONGODB_URI provided. Running on in-memory engine.');
-    const count = await tenantsCol.countDocuments();
-    if (count === 0) {
-      await seedMongoData();
-    }
-    await seedInitialActiveSessions();
     return;
   }
 
@@ -56,23 +60,25 @@ export async function connectDB() {
     unitsCol = db.collection('units');
     activeSessionsCol = db.collection('active_sessions');
 
-    // Create Indexes
-    await tenantsCol.createIndex({ slug: 1 }, { unique: true }).catch(() => {});
-    await usersCol.createIndex({ email: 1 }, { unique: true }).catch(() => {});
-    await productsCol.createIndex({ tenantId: 1, sku: 1 }, { unique: true }).catch(() => {});
-    await productsCol.createIndex({ tenantId: 1, category: 1 }).catch(() => {});
-    await ordersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
-    await savedOrdersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
-    await activityLogsCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
-    await activityLogsCol.createIndex({ tenantId: 1, module: 1 }).catch(() => {});
-    await loginHistoryCol.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
-    await activeSessionsCol.createIndex({ accessJti: 1 }, { unique: true }).catch(() => {});
-    await activeSessionsCol.createIndex({ userId: 1, status: 1 }).catch(() => {});
-    await activeSessionsCol.createIndex({ tenantId: 1, status: 1 }).catch(() => {});
-    await loginHistoryCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {});
-    await loginHistoryCol.createIndex({ createdAt: -1 }).catch(() => {});
-    await unitsCol.createIndex({ tenantId: 1, symbol: 1 }, { unique: true }).catch(() => {});
-    await unitsCol.createIndex({ tenantId: 1, name: 1 }).catch(() => {});
+    // Create Indexes in parallel
+    await Promise.all([
+      tenantsCol.createIndex({ slug: 1 }, { unique: true }).catch(() => {}),
+      usersCol.createIndex({ email: 1 }, { unique: true }).catch(() => {}),
+      productsCol.createIndex({ tenantId: 1, sku: 1 }, { unique: true }).catch(() => {}),
+      productsCol.createIndex({ tenantId: 1, category: 1 }).catch(() => {}),
+      ordersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {}),
+      savedOrdersCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {}),
+      activityLogsCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {}),
+      activityLogsCol.createIndex({ tenantId: 1, module: 1 }).catch(() => {}),
+      loginHistoryCol.createIndex({ userId: 1, createdAt: -1 }).catch(() => {}),
+      activeSessionsCol.createIndex({ accessJti: 1 }, { unique: true }).catch(() => {}),
+      activeSessionsCol.createIndex({ userId: 1, status: 1 }).catch(() => {}),
+      activeSessionsCol.createIndex({ tenantId: 1, status: 1 }).catch(() => {}),
+      loginHistoryCol.createIndex({ tenantId: 1, createdAt: -1 }).catch(() => {}),
+      loginHistoryCol.createIndex({ createdAt: -1 }).catch(() => {}),
+      unitsCol.createIndex({ tenantId: 1, symbol: 1 }, { unique: true }).catch(() => {}),
+      unitsCol.createIndex({ tenantId: 1, name: 1 }).catch(() => {}),
+    ]);
 
     isMongoLive = true;
     console.log('✅ Connected to MongoDB successfully!');
@@ -113,6 +119,7 @@ export async function connectDB() {
       }
       await ensureSeedOrdersForAdmin();
     }
+    await seedInitialActiveSessions();
   } catch (err: any) {
     console.warn('⚠️ MongoDB connection warning:', err.message);
     console.log('🛡️ Activating MongoDB-compatible In-Memory engine for KasirWarung...');
@@ -139,6 +146,7 @@ export async function connectDB() {
       }
       await ensureSeedOrdersForAdmin();
     }
+    await seedInitialActiveSessions();
   }
 }
 

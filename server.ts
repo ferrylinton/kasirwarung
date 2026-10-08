@@ -22,7 +22,6 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   await initBackendI18n();
-  await connectDB();
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -48,9 +47,7 @@ async function startServer() {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: {
-          server: httpServer,
-        },
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
       },
       appType: 'spa',
     });
@@ -67,6 +64,11 @@ async function startServer() {
 
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 KasirWarung server running on http://localhost:${PORT}`);
+  });
+
+  // Connect and seed database asynchronously so port 3000 binds immediately
+  connectDB().catch((err) => {
+    console.warn('Database initialization warning:', err);
   });
 }
 

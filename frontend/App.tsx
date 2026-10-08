@@ -87,12 +87,14 @@ export default function App() {
   // Products state
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Check URL query parameters for ?token=... (email verification link)
+  // Check URL query parameters for ?token=... or /verify-email (email verification link)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tokenParam = params.get('token');
     if (tokenParam) {
       setVerifyToken(tokenParam);
+      setAuthMode('verify');
+    } else if (window.location.pathname === '/verify-email') {
       setAuthMode('verify');
     }
   }, []);
@@ -210,10 +212,10 @@ export default function App() {
         {authMode === 'register' && (
           <RegisterPage
             onSwitchToLogin={() => setAuthMode('login')}
-            onRegisteredSuccess={(email, t) => {
+            onRegisteredSuccess={(email) => {
               setRegisteredEmail(email);
-              setVerifyToken(t || '');
-              setAuthMode('verify');
+              setVerifyToken('');
+              setAuthMode('login');
             }}
           />
         )}
@@ -223,10 +225,18 @@ export default function App() {
             initialToken={verifyToken}
             initialEmail={registeredEmail}
             onVerifiedSuccess={() => {
+              if (window.location.search || window.location.pathname === '/verify-email') {
+                window.history.replaceState({}, document.title, '/');
+              }
               setAuthMode('login');
               fetchProducts();
             }}
-            onBackToLogin={() => setAuthMode('login')}
+            onBackToLogin={() => {
+              if (window.location.search || window.location.pathname === '/verify-email') {
+                window.history.replaceState({}, document.title, '/');
+              }
+              setAuthMode('login');
+            }}
           />
         )}
 

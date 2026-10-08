@@ -150,16 +150,18 @@ export async function register(req: Request, res: Response) {
     }
 
     // Send Verification Email
-    const verifyLink = `${APP_URL}/verify-email?token=${verificationToken}`;
+    const baseUrl = (process.env.APP_URL || (req.headers.origin as string) || APP_URL).replace(/\/+$/, '');
+    const verifyLink = `${baseUrl}/verify-email?token=${verificationToken}`;
     const emailSent = await sendVerificationEmail({
       email,
       name,
       tenantName,
       verificationToken,
+      baseUrl,
     });
 
     if (!emailSent) {
-      console.log(`📧 [Verification Link] For ${email}: ${verifyLink}`);
+      console.log(`📧 [Verification Link] For ${email}: ${verifyLink} (Token: ${verificationToken})`);
     }
 
     // Seed 15 initial products for this new tenant in MongoDB
@@ -179,8 +181,6 @@ export async function register(req: Request, res: Response) {
       success: true,
       message: 'Pendaftaran berhasil disimpan di MongoDB! Email verifikasi telah dikirimkan.',
       emailSent,
-      verificationToken,
-      verifyLink,
       user: {
         id: newUser.id,
         name: newUser.name,
@@ -553,7 +553,7 @@ export async function refreshToken(req: Request, res: Response) {
     }
 
     // Generate new token pair
-    const { accessToken, refreshToken, refreshJti } = generateTokens({
+    const { accessToken, refreshToken, accessJti, refreshJti } = generateTokens({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -561,6 +561,20 @@ export async function refreshToken(req: Request, res: Response) {
       tenantId: user.tenantId,
       tenantName: user.tenantName,
     });
+
+    // Update active session JTI and lastActive timestamp if an active session exists
+    if (decoded.jti) {
+      await activeSessionsCol.updateOne(
+        { accessJti: decoded.jti, status: 'ACTIVE' },
+        {
+          $set: {
+            accessJti,
+            lastActive: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_SEC * 1000).toISOString(),
+          },
+        }
+      ).catch(() => {});
+    }
 
     // Update logged user status in Redis with new TTL
     await tokenStore.setLoggedUserStatus(
